@@ -1,2 +1,2 @@
-# mipt_cpp_project-
+# mipt_cpp_project
 currently in development 
