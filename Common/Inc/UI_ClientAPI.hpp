@@ -7,6 +7,7 @@
 namespace plague {
 
 struct GameSnapshot {
+    GameSituation screen;
     std::uint16_t day;
     InfoAboutPlayer playerInfo;
 

@@ -12,6 +12,16 @@ enum class PlayerRole {
     Pathogen
 };
 
+enum class GameSituation {
+    MainMenu,
+    Settings,
+    ConnectingToServer,
+    Exiting,
+    ChoosingSide,
+    Game,
+    EndScreen,
+};
+
 // Humanity Upgrades
 
 enum class HumanityAbilities {
