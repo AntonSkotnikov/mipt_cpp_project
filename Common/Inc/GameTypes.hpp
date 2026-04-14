@@ -42,7 +42,7 @@ enum class SpreadAbilities {
 
 };
 
-enum class SymphtomsAbilities {
+enum class SymptomsAbilities {
 
 };
 
