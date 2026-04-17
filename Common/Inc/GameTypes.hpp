@@ -15,8 +15,8 @@ enum class PlayerRole {
 enum class GameSituation {
     MainMenu,
     Settings,
-    ConnectingToServer,
-    Exiting,
+    ConnectToServer,
+    Exit,
     ChoosingSide,
     Game,
     EndScreen,
@@ -49,6 +49,8 @@ enum class SymphtomsAbilities {
 enum class PathogenAbilities {
 
 };
+
+//
 
 struct InfoAboutPlayer {
     PlayerRole       role;
