@@ -4,7 +4,10 @@
 #include <vector>
 
 #include "GameTypes.hpp"
+
 namespace plague {
+
+
 
 struct GameSnapshot {
     GameSituation screen;

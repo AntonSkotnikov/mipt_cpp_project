@@ -68,6 +68,3 @@ public:
     News(ImportanceOfNews level, std::string text) : level_(level), text_(text) {}
 };
 
-
-
-}
