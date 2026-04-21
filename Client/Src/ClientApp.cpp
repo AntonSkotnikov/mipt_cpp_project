@@ -8,8 +8,8 @@ ClientApp::ClientApp(IUserInterface& ui, ITransport& transport)
 void ClientApp::run() {
     while (running_) {
         ui_.render(situation_);
-        const ClientEvent event = ui_.pollEvent(situation_);
-        handleEvent(event);
+        const request::UIRequest request = ui_.pollRequest(situation_);
+        handleRequest(request);
         request_handler_->update();
     }
 }
@@ -18,27 +18,32 @@ void ClientApp::setSituation(GameSituation newSituation) {
     situation_ = newSituation;
 }
 
-void ClientApp::handleEvent(ClientEvent event) {
+void ClientApp::handleRequest(const request::UIRequest& request) {
     switch (situation_) {
     case GameSituation::MainMenu:
-        if (event == ClientEvent::GoToConnectMenu) {
+        if (std::holds_alternative<request::MainMenu>(request) &&
+            std::get<request::MainMenu>(request) == request::MainMenu::ConnectToServer) {
             setSituation(GameSituation::ConnectingToServer);
-        } else if (event == ClientEvent::GoToSettings) {
+        } else if (std::holds_alternative<request::MainMenu>(request) &&
+                   std::get<request::MainMenu>(request) == request::MainMenu::OpenSettings) {
             setSituation(GameSituation::Settings);
-        } else if (event == ClientEvent::ExitRequested) {
+        } else if (std::holds_alternative<request::MainMenu>(request) &&
+                   std::get<request::MainMenu>(request) == request::MainMenu::Exit) {
             setSituation(GameSituation::Exiting);
             running_ = false;
         }
         break;
 
     case GameSituation::Settings:
-        if (event == ClientEvent::BackToMainMenu) {
+        if (std::holds_alternative<request::Settings>(request) &&
+            std::get<request::Settings>(request) == request::Settings::Back) {
             setSituation(GameSituation::MainMenu);
         }
         break;
 
     case GameSituation::ConnectingToServer:
-        if (event == ClientEvent::SubmitConnect) {
+        if (std::holds_alternative<request::Connect>(request) &&
+            std::get<request::Connect>(request) == request::Connect::Submit) {
             if (transport_.connectToServer("127.0.0.1", 5555)) {
                 ui_.showMessage("Connected to server.");
                 setSituation(GameSituation::ChoosingSide);
@@ -46,13 +51,15 @@ void ClientApp::handleEvent(ClientEvent event) {
                 ui_.showMessage("Connection failed.");
                 setSituation(GameSituation::MainMenu);
             }
-        } else if (event == ClientEvent::CancelConnect) {
+        } else if (std::holds_alternative<request::Connect>(request) &&
+                   std::get<request::Connect>(request) == request::Connect::Cancel) {
             setSituation(GameSituation::MainMenu);
         }
         break;
 
     case GameSituation::ChoosingSide:
-        if (event == ClientEvent::ChooseHumanity) {
+        if (std::holds_alternative<request::SideSelection>(request) &&
+            std::get<request::SideSelection>(request) == request::SideSelection::ChooseHumanity) {
             if (transport_.isConnected() && transport_.send(ClientPackage{ClientCommand::ChooseHumanity, ""})) {
                 ui_.showMessage("Humanity selected.");
                 setSituation(GameSituation::Game);
@@ -60,7 +67,8 @@ void ClientApp::handleEvent(ClientEvent event) {
                 ui_.showMessage("Failed to notify server.");
                 setSituation(GameSituation::MainMenu);
             }
-        } else if (event == ClientEvent::ChoosePathogen) {
+        } else if (std::holds_alternative<request::SideSelection>(request) &&
+                   std::get<request::SideSelection>(request) == request::SideSelection::ChoosePathogen) {
             if (transport_.isConnected() && transport_.send(ClientPackage{ClientCommand::ChoosePathogen, ""})) {
                 ui_.showMessage("Pathogen selected.");
                 setSituation(GameSituation::Game);
@@ -68,7 +76,8 @@ void ClientApp::handleEvent(ClientEvent event) {
                 ui_.showMessage("Failed to notify server.");
                 setSituation(GameSituation::MainMenu);
             }
-        } else if (event == ClientEvent::DisconnectRequested) {
+        } else if (std::holds_alternative<request::SideSelection>(request) &&
+                   std::get<request::SideSelection>(request) == request::SideSelection::Disconnect) {
             transport_.disconnect();
             ui_.showMessage("Disconnected.");
             setSituation(GameSituation::MainMenu);
@@ -76,13 +85,15 @@ void ClientApp::handleEvent(ClientEvent event) {
         break;
 
     case GameSituation::Game:
-        if (event == ClientEvent::LeaveGame) {
+        if (std::holds_alternative<request::Game>(request) &&
+            std::get<request::Game>(request) == request::Game::Leave) {
             setSituation(GameSituation::EndScreen);
         }
         break;
 
     case GameSituation::EndScreen:
-        if (event == ClientEvent::BackToMainMenu) {
+        if (std::holds_alternative<request::EndScreen>(request) &&
+            std::get<request::EndScreen>(request) == request::EndScreen::BackToMainMenu) {
             setSituation(GameSituation::MainMenu);
         }
         break;

@@ -15,6 +15,10 @@ void UiManager::shutdown() {
     endwin();
 }
 
+void UiManager::setSituation(plague::GameSituation situation) {
+    situation_ = situation;
+}
+
 void UiManager::draw() {
     currentScreen().draw();
 }

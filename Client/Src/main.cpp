@@ -1,9 +1,9 @@
 #include "ClientApp.hpp"
-#include "ConsoleUi.hpp"
 #include "DummyTransport.hpp"
+#include "InterfaceUiAdapter.hpp"
 
 int main() {
-    plague::ConsoleUi ui;
+    plague::InterfaceUiAdapter ui;
     plague::DummyTransport transport;
     plague::ClientApp app(ui, transport);
     app.run();

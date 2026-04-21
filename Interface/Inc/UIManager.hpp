@@ -17,6 +17,7 @@ public:
 
     void init();
     void shutdown();
+    void setSituation(plague::GameSituation situation);
 
     void draw();
 

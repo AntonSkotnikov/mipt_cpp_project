@@ -1,7 +1,6 @@
 #pragma once
 
 #include "GameTypes.hpp"
-#include "ClientEvents.hpp"
 #include "ITransport.hpp"
 #include "IUserInterface.hpp"
 #include "RequestHandler.hpp"
@@ -15,7 +14,7 @@ public:
     void run();
 
 private:
-    void handleEvent(ClientEvent event);
+    void handleRequest(const request::UIRequest& request);
     void setSituation(GameSituation newSituation);
 
 private:
