@@ -1,34 +1,19 @@
 #pragma once
 
-#include <optional>
-#include <variant>
-
 #include "GameTypes.hpp"
-#include "MainMenu.hpp"
+#include "ScreenManager.hpp"
 #include "Settings.hpp"
-#include "UIRequest.hpp"
 
 namespace plague::ui {
 
-class UiManager {
-public:
-    UiManager() = default;
-    ~UiManager() = default;
-
-    void init();
-    void shutdown();
-
-    void draw();
-
-    std::optional<plague::request::UIRequest> pollRequest();
-
+class UIManager final {
 private:
-    plague::GameSituation situation_ = plague::GameSituation::MainMenu;
+    ScreenManager man_;
+    Config        cfg_;
+    GameSituation snap_;
 
-    MainMenuScreen mainMenuScreen_{};
-    SettingsScreen settingsScreen_{};
-
-    Screen& currentScreen();
+public:
+    UIManager(); // init of ncurses etc
 };
 
-}  // namespace plague::ui
+}

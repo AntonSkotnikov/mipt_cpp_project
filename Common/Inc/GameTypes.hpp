@@ -14,9 +14,14 @@ enum class PlayerRole {
 
 enum class GameSituation {
     MainMenu,
+
     Settings,
     ConnectToServer,
     Exit,
+
+    СonnectingToServer,
+    ConnectingToServerFailed,
+    
     ChoosingSide,
     Game,
     EndScreen,
