@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <memory>
+#include <variant>
 
 
 namespace plague::ui {
@@ -18,6 +19,15 @@ int Screen::getKey() {
 
 void Screen::resize() {}
 
+void Screen::focusFirst() {
+    for (std::size_t i = 0; i < widgets.size(); i++) {
+        if (widgets[i]->focusable()) {
+            focusWidget(i);
+            return;
+        }
+    }
+}
+
 void Screen::focusWidget(std::size_t index) {
     if (index >= widgets.size() || !widgets[index]->focusable()) return;
 
@@ -27,6 +37,30 @@ void Screen::focusWidget(std::size_t index) {
 
     focusedIndex_ = index;
     widgets[focusedIndex_]->setFocus(true);
+}
+
+void Screen::focusNext() {
+    if (widgets.empty()) return;
+
+    for (std::size_t step = 1; step <= widgets.size(); step++) {
+        const std::size_t index = (focusedIndex_ + step) % widgets.size();
+        if (widgets[index]->focusable()) {
+            focusWidget(index);
+            return;
+        }
+    }
+}
+
+void Screen::focusPrev() {
+    if (widgets.empty()) return;
+
+    for (std::size_t step = 1; step <= widgets.size(); step++) {
+        const std::size_t index = (focusedIndex_ + widgets.size() - step) % widgets.size();
+        if (widgets[index]->focusable()) {
+            focusWidget(index);
+            return;
+        }
+    }
 }
 
 Widget * Screen::focusedWidget() {
@@ -46,31 +80,26 @@ MainMenuScreen::MainMenuScreen(Config & cfg, Window & win) : Screen(cfg, win) {
                                 __/ |                               
                                |___/                                )");
             
-    auto connectButton = std::make_unique<Button>(win_, "Connect to server", []() -> request::UIRequest {
+    auto menuWidget = std::make_unique<Menu>(win_);
+
+    menuWidget->addButton("Connect to server", []() -> request::UIRequest {
         return request::MainMenu::ConnectToServer;
     });
 
-    auto settingsButton = std::make_unique<Button>(win_, "Settings", []() -> request::UIRequest {
+    menuWidget->addButton("Settings", []() -> request::UIRequest {
         return request::MainMenu::OpenSettings;
     });
 
-    auto quitButton = std::make_unique<Button>(win_, "Quit", []() -> request::UIRequest {
+    menuWidget->addButton("Quit", []() -> request::UIRequest {
         return request::MainMenu::Exit;
     });
 
     widgets.push_back(std::move(logoWidget));
-    widgets.push_back(std::move(connectButton));
-    widgets.push_back(std::move(settingsButton));
-    widgets.push_back(std::move(quitButton));
+    widgets.push_back(std::move(menuWidget));
 
     layout();
 
-    for (auto & widget : widgets) {
-        if (widget->focusable()) {
-            widget->setFocus(true);
-            break;
-        }
-    }
+    focusFirst();
 } 
 
 void MainMenuScreen::layout() {
@@ -80,12 +109,10 @@ void MainMenuScreen::layout() {
     const int buttonY = std::min(padding + logoHeight + 2, std::max(padding, win_.height() - padding - 3));
     const int buttonWidth = std::min(20, contentWidth);
 
-    if (widgets.size() < 4) return;
+    if (widgets.size() < 2) return;
 
     widgets[0]->setRect({padding, padding, logoHeight, contentWidth});
-    widgets[1]->setRect({buttonY, padding, 1, buttonWidth});
-    widgets[2]->setRect({buttonY + 1, padding, 1, buttonWidth});
-    widgets[3]->setRect({buttonY + 2, padding, 1, buttonWidth});
+    widgets[1]->setRect({buttonY, padding, 3, buttonWidth});
 }
 
 void MainMenuScreen::resize() {
@@ -104,31 +131,28 @@ void MainMenuScreen::draw() {
 }
 
 request::UIRequest MainMenuScreen::handleInput(int key) {
-    size_t numOfWidgets = widgets.size();
-    for (size_t i = 0; i < numOfWidgets; i++) {
-        if (widgets[i]->focused()) {
-            request::UIRequest req =  widgets[i]->handleInput(key);
-            if (!std::holds_alternative<request::None>(req)) return req;
+    if (Widget * widget = focusedWidget()) {
+        const InputResult result = widget->handleInput(key);
+        if (!std::holds_alternative<request::None>(result.request)) {
+            return result.request;
+        }
+
+        if (result.handled) {
+            return request::None{};
         }
     }
 
     switch (key) {
-        case KEY_UP:
-            focusWidget(focusedIndex_ == 1 ? 3 : focusedIndex_ - 1);
+        case KEY_LEFT:
+        case KEY_BTAB:
+            focusPrev();
             return request::None{};
 
-        case KEY_DOWN:
-            focusWidget(focusedIndex_ == 3 ? 1 : focusedIndex_ + 1);
-            return request::None{};
-
-        default:
-            if (Widget * widget = focusedWidget()) {
-                return widget->handleInput(key);
-            }
-
+        case KEY_RIGHT:
+        case '\t':
+            focusNext();
             return request::None{};
     }
-    // TODO navigation
 
     return request::None{};
 }

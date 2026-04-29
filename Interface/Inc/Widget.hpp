@@ -2,7 +2,9 @@
 
 #include "UIRequest.hpp"
 #include "Window.hpp"
+#include <cstddef>
 #include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -15,6 +17,11 @@ struct Rect {
     int width;
 };
 
+struct InputResult {
+    bool handled = false;
+    request::UIRequest request = request::None{};
+};
+
 class Widget {
 protected:
     Window & win_;
@@ -25,16 +32,16 @@ public:
     virtual ~Widget() = default;
 
     virtual void draw() = 0;
-    virtual request::UIRequest handleInput(int key) {
+    virtual InputResult handleInput(int key) {
         (void)key;
-        return request::None{};
+        return {};
     }
 
     virtual bool focusable() const { return false; }
 
-    void setRect(Rect rect) { rect_ = rect; }
+    virtual void setRect(Rect rect) { rect_ = rect; }
 
-    void setFocus(bool value) { focused_ = value; }
+    virtual void setFocus(bool value) { focused_ = value; }
     bool focused() const { return focused_; }
 };
 
@@ -45,7 +52,7 @@ private:
 public:
     Button(Window & win, std::string text, std::function<request::UIRequest()> cb);
     void draw() override;
-    request::UIRequest handleInput(int key) override;
+    InputResult handleInput(int key) override;
     bool focusable() const override { return true; }
 };
 
@@ -55,6 +62,25 @@ private:
 public:
     Info(Window & win, std::string text);
     void draw() override;
+};
+
+class Menu final : public Widget {
+private:
+    std::vector<std::unique_ptr<Button>> buttons_;
+    std::size_t selectedIndex_ = 0;
+
+    void layoutButtons();
+    std::size_t selectableCount() const;
+    void select(std::size_t index);
+public:
+    explicit Menu(Window & win);
+
+    void addButton(std::string text, std::function<request::UIRequest()> cb);
+    void setRect(Rect rect) override;
+    void setFocus(bool value) override;
+    void draw() override;
+    InputResult handleInput(int key) override;
+    bool focusable() const override { return !buttons_.empty(); }
 };
 
 }

@@ -25,7 +25,10 @@ protected:
     Config & cfg_;
     Window & win_;
 
+    void focusFirst();
     void focusWidget(std::size_t index);
+    void focusNext();
+    void focusPrev();
     Widget * focusedWidget();
     std::size_t focusedIndex_ = 0;
 };
