@@ -1,19 +1,23 @@
 #pragma once
 
-#include "GameTypes.hpp"
 #include "ScreenManager.hpp"
 #include "Settings.hpp"
+#include "UIRequest.hpp"
+#include "UI_ClientAPI.hpp"
+#include <memory>
 
 namespace plague::ui {
 
 class UIManager final {
 private:
-    ScreenManager man_;
+    std::unique_ptr<ScreenManager> man_;
     Config        cfg_;
-    GameSituation snap_;
+    GameSnapshot snap_;
 
 public:
     UIManager(); // init of ncurses etc
+    ~UIManager();
+    request::UIRequest loop(GameSnapshot snap);
 };
 
 }  // namespace plague::ui

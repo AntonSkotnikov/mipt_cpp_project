@@ -1,9 +1,10 @@
 #pragma once
 
-#include "GameTypes.hpp"
 #include "ITransport.hpp"
 #include "IUserInterface.hpp"
 #include "RequestHandler.hpp"
+#include "UI_ClientAPI.hpp"
+
 #include <memory>
 
 namespace plague {
@@ -16,12 +17,18 @@ public:
 private:
     void handleRequest(const request::UIRequest& request);
     void setSituation(GameSituation newSituation);
+    void resetSnapshotForMenu();
 
 private:
     IUserInterface& ui_;
     ITransport& transport_;
     std::unique_ptr<RequestHandler> request_handler_;
-    GameSituation situation_ = GameSituation::MainMenu;
+    GameSnapshot snapshot_{
+        GameSituation::MainMenu,
+        0,
+        InfoAboutPlayer{PlayerRole::Humanity, 0},
+        {}
+    };
     bool running_ = true;
 };
 

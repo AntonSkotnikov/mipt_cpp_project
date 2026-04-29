@@ -15,7 +15,7 @@ private:
     //Screen choosingSide;
     //Screen game_;
 public:
-    Screen & curScreen = mainMenu_;
+    Screen * curScreen = &mainMenu_;
     ScreenManager(Config & cfg);
 };
 

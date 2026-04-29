@@ -17,51 +17,51 @@ InterfaceUiAdapter::~InterfaceUiAdapter() {
     endwin();
 }
 
-void InterfaceUiAdapter::render(GameSituation situation) {
-    switch (situation) {
+void InterfaceUiAdapter::render(const GameSnapshot& snapshot) {
+    switch (snapshot.situation) {
     case GameSituation::MainMenu:
-        renderScreen("Main Menu", "Connect to server", "Settings", "Exit");
+        renderScreen(snapshot, "Main Menu", "Connect to server", "Settings", "Exit");
         break;
 
     case GameSituation::Settings:
-        renderScreen("Settings", "Back");
+        renderScreen(snapshot, "Settings", "Back");
         break;
 
     case GameSituation::ConnectToServer:
     case GameSituation::ConnectingToServer:
-        renderScreen("Connecting", "Connect", "Cancel");
+        renderScreen(snapshot, "Connecting", "Connect", "Cancel");
         break;
 
     case GameSituation::ConnectingToServerFailed:
-        renderScreen("Connection Failed", "Back to main menu");
+        renderScreen(snapshot, "Connection Failed", "Back to main menu");
         break;
 
     case GameSituation::ChoosingSide:
-        renderScreen("Choose Side", "Humanity", "Pathogen", "Disconnect");
+        renderScreen(snapshot, "Choose Side", "Humanity", "Pathogen", "Disconnect");
         break;
 
     case GameSituation::Game:
-        renderScreen("Game", "Leave game");
+        renderScreen(snapshot, "Game", "Leave game");
         break;
 
     case GameSituation::EndScreen:
-        renderScreen("End Screen", "Back to main menu");
+        renderScreen(snapshot, "End Screen", "Back to main menu");
         break;
 
     case GameSituation::Exiting:
-        renderScreen("Exiting...");
+        renderScreen(snapshot, "Exiting...");
         break;
     }
 }
 
-request::UIRequest InterfaceUiAdapter::pollRequest(GameSituation situation) {
+request::UIRequest InterfaceUiAdapter::pollRequest(const GameSnapshot& snapshot) {
     const int key = getch();
 
     if (key == ERR || key == KEY_RESIZE) {
         return request::None{};
     }
 
-    switch (situation) {
+    switch (snapshot.situation) {
     case GameSituation::MainMenu:
         if (key == '1') return request::MainMenu::ConnectToServer;
         if (key == '2') return request::MainMenu::OpenSettings;
@@ -107,7 +107,8 @@ void InterfaceUiAdapter::showMessage(const char* text) {
     last_message_ = text != nullptr ? text : "";
 }
 
-void InterfaceUiAdapter::renderScreen(const char* title,
+void InterfaceUiAdapter::renderScreen(const GameSnapshot& snapshot,
+                                      const char* title,
                                       const char* option1,
                                       const char* option2,
                                       const char* option3) const {
@@ -125,6 +126,14 @@ void InterfaceUiAdapter::renderScreen(const char* title,
     }
     if (option3 != nullptr) {
         mvprintw(line++, 2, "3) %s", option3);
+    }
+
+    mvprintw(line + 1, 2, "Day: %u", static_cast<unsigned>(snapshot.day));
+    mvprintw(line + 2, 2, "Role: %s", snapshot.playerInfo.role == PlayerRole::Humanity ? "Humanity" : "Pathogen");
+    mvprintw(line + 3, 2, "Points: %u", static_cast<unsigned>(snapshot.playerInfo.points));
+
+    if (!snapshot.recentNews.empty()) {
+        mvprintw(line + 5, 2, "News: %s", snapshot.recentNews.back().text_.c_str());
     }
 
     if (!last_message_.empty()) {

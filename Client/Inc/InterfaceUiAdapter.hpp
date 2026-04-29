@@ -11,12 +11,13 @@ public:
     InterfaceUiAdapter();
     ~InterfaceUiAdapter() override;
 
-    void render(GameSituation situation) override;
-    request::UIRequest pollRequest(GameSituation situation) override;
+    void render(const GameSnapshot& snapshot) override;
+    request::UIRequest pollRequest(const GameSnapshot& snapshot) override;
     void showMessage(const char* text) override;
 
 private:
-    void renderScreen(const char* title,
+    void renderScreen(const GameSnapshot& snapshot,
+                      const char* title,
                       const char* option1 = nullptr,
                       const char* option2 = nullptr,
                       const char* option3 = nullptr) const;
