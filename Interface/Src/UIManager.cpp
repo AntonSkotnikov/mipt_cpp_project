@@ -1,49 +1,24 @@
 #include "UIManager.hpp"
-#include <ncurses.h>
+#include "ScreenManager.hpp"
+#include "Settings.hpp"
 
-using namespace plague::ui;
+namespace plague::ui {
 
-void UiManager::init() {
+UIManager::UIManager() : man_{cfg_} {
     initscr();
     cbreak();
     noecho();
     keypad(stdscr, TRUE);
     curs_set(0);
-}
 
-void UiManager::shutdown() {
-    endwin();
-}
+    int widthOfTerm, heightOfTerm;
+    getmaxyx(stdscr, heightOfTerm, widthOfTerm);
 
-void UiManager::setSituation(plague::GameSituation situation) {
-    situation_ = situation;
-}
-
-void UiManager::draw() {
-    currentScreen().draw();
-}
-
-std::optional<plague::request::UIRequest> UiManager::pollRequest() {
-    const int key = getch();
-
-    if (key == KEY_RESIZE) {
-        return std::nullopt;
+    if (widthOfTerm < terminalProfiles.at(Resolutions::Low).width || heightOfTerm < terminalProfiles.at(Resolutions::Low).height) {
+        // make alert
+    } else if (widthOfTerm < terminalProfiles.at(Resolutions::Medium).width || heightOfTerm < terminalProfiles.at(Resolutions::Medium).height) {
+        cfg_.resolution = Resolutions::Low;
     }
-
-    const plague::request::UIRequest request = currentScreen().handleInput(key);
-
-    return request;
 }
 
-Screen& UiManager::currentScreen() {
-    switch (situation_) {
-        case plague::GameSituation::MainMenu:
-            return mainMenuScreen_;
-
-        case plague::GameSituation::Settings:
-            return settingsScreen_;
-
-        default:
-            return mainMenuScreen_;
-    }
 }
