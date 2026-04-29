@@ -4,7 +4,8 @@
 
 namespace plague::ui {
 
-ScreenManager::ScreenManager(Config & cfg) : mainWin_{terminalProfiles.at(cfg.resolution).width + deltaForBorders, terminalProfiles.at(cfg.resolution).height + deltaForBorders},
-                                             mainMenu_{cfg, mainWin_} {}
+ScreenManager::ScreenManager(Config & cfg) : mainWin_{terminalProfiles.at(cfg.resolution).height + deltaForBorders, terminalProfiles.at(cfg.resolution).width + deltaForBorders},
+                                             mainMenu_{cfg, mainWin_},
+                                             curScreen(&mainMenu_) {}
 
 }

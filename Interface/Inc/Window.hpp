@@ -45,6 +45,8 @@ public:
     void colorOff(short pair);
     void resize(int height, int width);
     void move(int posY, int posX);
+    int height() const { return height_; }
+    int width() const { return width_; }
 };
 
 }

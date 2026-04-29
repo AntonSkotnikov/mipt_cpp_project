@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Settings.hpp"
+#include "UIRequest.hpp"
 #include "Window.hpp"
 #include "Widget.hpp"
 #include <memory>
@@ -16,7 +17,8 @@ public:
     virtual ~Screen() = default;
 
     virtual void draw() = 0;
-    virtual void handleInput(int key) = 0;
+    virtual request::UIRequest handleInput(int key) = 0;
+    int getKey();
     void add(std::unique_ptr<Widget> newWidget);
     Screen(Config & cfg, Window & win);
 };
@@ -26,7 +28,7 @@ public:
     MainMenuScreen(Config & cfg, Window & win);
 
     void draw() override;
-    void handleInput(int key) override;
+    request::UIRequest handleInput(int key) override;
 };
 
 }

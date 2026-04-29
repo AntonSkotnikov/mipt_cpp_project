@@ -8,7 +8,11 @@
 namespace plague::ui {
 
 Window::Window(int height, int width, int posY, int posX) : width_(width), height_(height), posX_(posX), posY_(posY) {
-    win_ = newwin(width_, height_, posY_, posX_);
+    win_ = newwin(height_, width_, posY_, posX_);
+    if (win_ == nullptr) {
+        throw NcursesError("Window creation error");
+    }
+    keypad(win_, TRUE);
     wrefresh(win_);
 }
 
@@ -23,12 +27,16 @@ Window::Window(int height, int width) : width_(width), height_(height) {
     posX_ = (maxX - width_)  / 2;
 
     win_ = newwin(height_, width_, posY_, posX_);
+    if (win_ == nullptr) {
+        throw NcursesError("Window creation error");
+    }
+    keypad(win_, TRUE);
     wrefresh(win_);
 }
 
 Window::~Window() {
     delwin(win_);
-    refresh();
+    ::refresh();
 }
 
 void Window::makeBorders() {
@@ -36,7 +44,7 @@ void Window::makeBorders() {
 }
 
 void Window::refresh() {
-    ::refresh();
+    ::wrefresh(win_);
 }
 
 void Window::print(int y, int x, std::string_view text) {
@@ -100,19 +108,19 @@ int Window::getKey() {
 }
 
 void Window::attrOn(attr_t at) {
-    ::attron(at);
+    ::wattron(win_, at);
 }
 
 void Window::attrOff(attr_t at) {
-    ::attroff(at);
+    ::wattroff(win_, at);
 }
 
 void Window::colorOn(short pair) {
-    ::attron(COLOR_PAIR(pair));
+    ::wattron(win_, COLOR_PAIR(pair));
 }
 
 void Window::colorOff(short pair) {
-    ::attroff(COLOR_PAIR(pair));
+    ::wattroff(win_, COLOR_PAIR(pair));
 }
 
 void Window::resize(int width, int height) {

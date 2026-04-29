@@ -1,4 +1,5 @@
 #include "Widget.hpp"
+#include "UIRequest.hpp"
 #include "Window.hpp"
 #include "utilities.hpp"
 #include <functional>
@@ -25,16 +26,14 @@ void Button::draw() {
     }
 }
 
-bool Button::handleInput(int key) {
+request::UIRequest Button::handleInput(int key) {
     if (key == '\n' || key == KEY_ENTER || key == '\r') {
         if (onClick_) {
-            onClick_();
+            return onClick_();
         }
-
-        return true;
     }
 
-    return false;
+    return request::None{};
 }
 
 Info::Info(Window & win, std::string text) : Widget(win) {

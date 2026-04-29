@@ -25,7 +25,10 @@ public:
     virtual ~Widget() = default;
 
     virtual void draw() = 0;
-    virtual bool handleInput(int key) { return false; }
+    virtual request::UIRequest handleInput(int key) {
+        (void)key;
+        return request::None{};
+    }
 
     virtual bool focusable() const { return false; }
 
@@ -42,7 +45,8 @@ private:
 public:
     Button(Window & win, std::string text, std::function<request::UIRequest()> cb);
     void draw() override;
-    bool handleInput(int key) override;
+    request::UIRequest handleInput(int key) override;
+    bool focusable() const override { return true; }
 };
 
 class Info final : public Widget {
