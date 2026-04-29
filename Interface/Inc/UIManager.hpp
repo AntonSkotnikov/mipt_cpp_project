@@ -1,6 +1,5 @@
 #pragma once
 
-#include "GameTypes.hpp"
 #include "ScreenManager.hpp"
 #include "Settings.hpp"
 #include "UIRequest.hpp"

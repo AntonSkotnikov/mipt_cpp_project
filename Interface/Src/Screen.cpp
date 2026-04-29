@@ -16,6 +16,23 @@ int Screen::getKey() {
     return win_.getKey();
 }
 
+void Screen::focusWidget(std::size_t index) {
+    if (index >= widgets.size() || !widgets[index]->focusable()) return;
+
+    if (focusedIndex_ < widgets.size()) {
+        widgets[focusedIndex_]->setFocus(false);
+    }
+
+    focusedIndex_ = index;
+    widgets[focusedIndex_]->setFocus(true);
+}
+
+Widget * Screen::focusedWidget() {
+    if (focusedIndex_ >= widgets.size()) return nullptr;
+    return widgets[focusedIndex_].get();
+}
+
+
 MainMenuScreen::MainMenuScreen(Config & cfg, Window & win) : Screen(cfg, win) {
     auto logoWidget = std::make_unique<Info>(win_, R"(
                 ______ _                          _____             
@@ -64,7 +81,7 @@ MainMenuScreen::MainMenuScreen(Config & cfg, Window & win) : Screen(cfg, win) {
 
 void MainMenuScreen::draw() {
     win_.clear();
-    
+
     size_t numOfWidgets = widgets.size();
     for (size_t i = 0; i < numOfWidgets; i++) {
         widgets[i]->draw();
@@ -80,6 +97,23 @@ request::UIRequest MainMenuScreen::handleInput(int key) {
             request::UIRequest req =  widgets[i]->handleInput(key);
             if (!std::holds_alternative<request::None>(req)) return req;
         }
+    }
+
+    switch (key) {
+        case KEY_UP:
+            focusWidget(focusedIndex_ == 1 ? 3 : focusedIndex_ - 1);
+            return request::None{};
+
+        case KEY_DOWN:
+            focusWidget(focusedIndex_ == 3 ? 1 : focusedIndex_ + 1);
+            return request::None{};
+
+        default:
+            if (Widget * widget = focusedWidget()) {
+                return widget->handleInput(key);
+            }
+
+            return request::None{};
     }
     // TODO navigation
 
