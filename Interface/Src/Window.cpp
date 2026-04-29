@@ -1,6 +1,7 @@
 #include "Window.hpp"
 
 #include <ncurses.h>
+#include <algorithm>
 #include <string_view>
 #include <vector>
 #include <string>
@@ -41,6 +42,10 @@ Window::~Window() {
 
 void Window::makeBorders() {
     ::box(win_, 0, 0);
+}
+
+void Window::setBorders(bool value) {
+    bordered_ = value;
 }
 
 void Window::refresh() {
@@ -101,6 +106,9 @@ void Window::printCentered(int y, std::string_view text) {
 
 void Window::clear() {
     ::wclear(win_);
+    if (bordered_) {
+        makeBorders();
+    }
 }
 
 int Window::getKey() {
@@ -123,7 +131,10 @@ void Window::colorOff(short pair) {
     ::wattroff(win_, COLOR_PAIR(pair));
 }
 
-void Window::resize(int width, int height) {
+void Window::resize(int height, int width) {
+    height = std::max(1, height);
+    width = std::max(1, width);
+
     if (wresize(win_, height, width) == ERR) {
         throw NcursesError("Resize error");
     }
@@ -131,8 +142,24 @@ void Window::resize(int width, int height) {
     height_ = height;
 }
 
+void Window::resizeCentered(int height, int width) {
+    int maxY = 0;
+    int maxX = 0;
+    getmaxyx(stdscr, maxY, maxX);
+
+    if (maxY <= 0 || maxX <= 0) {
+        throw NcursesError("Terminal size error");
+    }
+
+    height = std::clamp(height, 1, maxY);
+    width = std::clamp(width, 1, maxX);
+
+    resize(height, width);
+    move((maxY - height) / 2, (maxX - width) / 2);
+}
+
 void Window::move(int posY, int posX) {
-    if (wmove(win_, posY, posX) == ERR) {
+    if (mvwin(win_, posY, posX) == ERR) {
         throw NcursesError("Move error");
     }
     posY_ = posY;

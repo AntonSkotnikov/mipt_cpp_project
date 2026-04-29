@@ -18,6 +18,7 @@ public:
     UIManager(); // init of ncurses etc
     ~UIManager();
     request::UIRequest loop(GameSnapshot snap);
+    void resize();
 };
 
 }

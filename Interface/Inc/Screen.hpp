@@ -16,6 +16,7 @@ public:
 
     virtual void draw() = 0;
     virtual request::UIRequest handleInput(int key) = 0;
+    virtual void resize();
     int getKey();
     void add(std::unique_ptr<Widget> newWidget);
     Screen(Config & cfg, Window & win);
@@ -35,6 +36,9 @@ public:
 
     void draw() override;
     request::UIRequest handleInput(int key) override;
+    void resize() override;
+private:
+    void layout();
 };
 
 }

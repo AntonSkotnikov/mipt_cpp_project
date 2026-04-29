@@ -8,6 +8,7 @@ namespace plague::ui {
 
 class ScreenManager final {
 private:
+    Config & cfg_;
     Window mainWin_; // for border 
     MainMenuScreen mainMenu_;
     //Screen connect_;
@@ -17,6 +18,9 @@ private:
 public:
     Screen * curScreen = &mainMenu_;
     ScreenManager(Config & cfg);
+    void resize();
+private:
+    void applyWindowLayout();
 };
 
 }

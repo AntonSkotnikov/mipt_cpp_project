@@ -21,6 +21,7 @@ private:
     int height_;
     int posX_;
     int posY_;
+    bool bordered_ = false;
 public:
     Window(int height, int width, int posY, int posX);
     Window(int height, int width); // centered
@@ -34,6 +35,8 @@ public:
     Window(Window && rhs)      = delete;
 
     void makeBorders();
+    void setBorders(bool value);
+    bool bordered() const { return bordered_; }
     void refresh();
     void print(int y, int x, std::string_view text);
     void printCentered(int y, std::string_view text);
@@ -44,6 +47,7 @@ public:
     void colorOn(short pair);
     void colorOff(short pair);
     void resize(int height, int width);
+    void resizeCentered(int height, int width);
     void move(int posY, int posX);
     int height() const { return height_; }
     int width() const { return width_; }
