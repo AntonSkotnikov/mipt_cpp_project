@@ -4,6 +4,7 @@
 #include "ScreenManager.hpp"
 #include "Settings.hpp"
 #include "UIRequest.hpp"
+#include "UI_ClientAPI.hpp"
 #include <memory>
 
 namespace plague::ui {
@@ -17,7 +18,7 @@ private:
 public:
     UIManager(); // init of ncurses etc
     ~UIManager();
-    request::UIRequest loop();
+    request::UIRequest loop(GameSnapshot snap);
 };
 
 }
