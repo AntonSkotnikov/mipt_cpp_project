@@ -9,9 +9,11 @@ namespace plague::ui {
 class ScreenManager final {
 private:
     Config & cfg_;
-    Window mainWin_; // for border 
+    Window mainWin_; // for border if needed
+
+    SmallTermScreen smallTerm_;
     MainMenuScreen mainMenu_;
-    //Screen connect_;
+    ConnectToServerScreen connect_;
     //Screen settings_;
     //Screen choosingSide;
     //Screen game_;
@@ -21,6 +23,7 @@ public:
     void resize();
 private:
     void applyWindowLayout();
+    void selectCurrentScreen();
 };
 
 }

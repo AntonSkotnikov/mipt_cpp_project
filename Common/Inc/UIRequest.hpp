@@ -16,10 +16,16 @@ enum class Settings {
     Back
 };
 
+enum class Connect {
+    Back,
+    Connect
+};
+
 using UIRequest = std::variant<
     None,
     MainMenu,
-    Settings
+    Settings,
+    Connect
 >;
 
 }  // namespace plague::request

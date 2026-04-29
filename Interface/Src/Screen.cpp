@@ -157,4 +157,116 @@ request::UIRequest MainMenuScreen::handleInput(int key) {
     return request::None{};
 }
 
+SmallTermScreen::SmallTermScreen(Config & cfg, Window & win) : Screen(cfg, win) {
+    widgets.push_back(std::make_unique<FrameDecorator>(
+        win_,
+        std::make_unique<Dialog>(win_, "Terminal is too small\nPlease resize it")
+    ));
+    layout();
+}
+
+void SmallTermScreen::layout() {
+    if (widgets.empty()) return;
+
+    if (win_.height() <= 2 || win_.width() <= 2) {
+        widgets[0]->setRect({0, 0, win_.height(), win_.width()});
+        return;
+    }
+
+    widgets[0]->setRect({1, 1, win_.height() - 2, win_.width() - 2});
+}
+
+void SmallTermScreen::resize() {
+    layout();
+}
+
+void SmallTermScreen::draw() {
+    win_.clear();
+
+    for (auto & widget : widgets) {
+        widget->draw();
+    }
+
+    win_.refresh();
+}
+
+request::UIRequest SmallTermScreen::handleInput(int key) {
+    (void)key;
+    return request::None{};
+}
+
+ConnectToServerScreen::ConnectToServerScreen(Config & cfg, Window & win) : Screen(cfg, win) {
+    widgets.push_back(std::make_unique<LabelDecorator>(win_, std::make_unique<FrameDecorator>(win_, std::make_unique<TextInput>(win_)), "Address"));
+    widgets.push_back(std::make_unique<LabelDecorator>(win_, std::make_unique<FrameDecorator>(win_, std::make_unique<TextInput>(win_)), "Port"));
+
+    auto menuWidget = std::make_unique<Menu>(win_);
+    menuWidget->addButton("Connect", []() -> request::UIRequest {
+        return request::Connect::Connect;
+    });
+    menuWidget->addButton("Back", []() -> request::UIRequest {
+        return request::Connect::Back;
+    });
+    widgets.push_back(std::move(menuWidget));
+
+    layout();
+    focusFirst();
+}
+
+void ConnectToServerScreen::layout() {
+    if (widgets.size() < 3) return;
+
+    const int padding = win_.bordered() ? 2 : 1;
+    const int contentWidth = std::max(1, win_.width() - padding * 2);
+    const int fieldWidth = std::min(46, std::max(1, contentWidth - 2));
+    const int x = padding;
+
+    widgets[0]->setRect({padding + 2, x + 1, 1, fieldWidth});
+    widgets[1]->setRect({padding + 7, x + 1, 1, fieldWidth});
+    widgets[2]->setRect({padding + 11, x, 2, std::min(20, fieldWidth)});
+}
+
+void ConnectToServerScreen::resize() {
+    layout();
+}
+
+void ConnectToServerScreen::draw() {
+    win_.clear();
+
+    for (auto & widget : widgets) {
+        widget->draw();
+    }
+
+    win_.refresh();
+}
+
+request::UIRequest ConnectToServerScreen::handleInput(int key) {
+    if (Widget * widget = focusedWidget()) {
+        const InputResult result = widget->handleInput(key);
+        if (!std::holds_alternative<request::None>(result.request)) {
+            return result.request;
+        }
+
+        if (result.handled) {
+            return request::None{};
+        }
+    }
+
+    switch (key) {
+        case KEY_UP:
+        case KEY_BTAB:
+            focusPrev();
+            return request::None{};
+
+        case KEY_DOWN:
+        case '\t':
+            focusNext();
+            return request::None{};
+
+        case 27:
+            return request::Connect::Back;
+    }
+
+    return request::None{};
+}
+
 }

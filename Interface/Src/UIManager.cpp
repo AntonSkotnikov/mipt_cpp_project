@@ -3,6 +3,7 @@
 #include "Settings.hpp"
 #include "UIRequest.hpp"
 #include "UI_ClientAPI.hpp"
+#include <clocale>
 #include <cstdlib>
 #include <stdexcept>
 #include <string_view>
@@ -27,6 +28,13 @@ Resolutions chooseResolution(int terminalHeight, int terminalWidth) {
     return Resolutions::Low;
 }
 
+void updateTerminalConfig(Config & cfg, int terminalHeight, int terminalWidth) {
+    const TerminalProfile low = terminalProfiles.at(Resolutions::Low);
+
+    cfg.terminalTooSmall = terminalWidth < low.width || terminalHeight < low.height;
+    cfg.resolution = chooseResolution(terminalHeight, terminalWidth);
+}
+
 }
 
 UIManager::UIManager() {
@@ -34,6 +42,8 @@ UIManager::UIManager() {
     if (term == nullptr || std::string_view(term) == "dumb") {
         throw std::runtime_error("Terminal does not support ncurses. Run in a real terminal or set TERM=xterm-256color.");
     }
+
+    std::setlocale(LC_ALL, "");
 
     initscr();
     cbreak();
@@ -44,7 +54,7 @@ UIManager::UIManager() {
     int widthOfTerm, heightOfTerm;
     getmaxyx(stdscr, heightOfTerm, widthOfTerm);
 
-    cfg_.resolution = chooseResolution(heightOfTerm, widthOfTerm);
+    updateTerminalConfig(cfg_, heightOfTerm, widthOfTerm);
 
     man_ = std::make_unique<ScreenManager>(cfg_);
 }
@@ -75,7 +85,7 @@ void UIManager::resize() {
     int widthOfTerm = 0;
     getmaxyx(stdscr, heightOfTerm, widthOfTerm);
 
-    cfg_.resolution = chooseResolution(heightOfTerm, widthOfTerm);
+    updateTerminalConfig(cfg_, heightOfTerm, widthOfTerm);
     man_->resize();
     man_->curScreen->draw();
 }

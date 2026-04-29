@@ -44,4 +44,28 @@ private:
     void layout();
 };
 
+class SmallTermScreen final: public Screen {
+public:
+    SmallTermScreen(Config & cfg, Window & win);
+
+    void draw() override;
+    request::UIRequest handleInput(int key) override;
+    void resize() override;
+private:
+    void layout();
+};
+
+class ConnectToServerScreen final : public Screen {
+public:
+    ConnectToServerScreen(Config & cfg, Window & win);
+
+    void draw() override;
+    request::UIRequest handleInput(int key) override;
+    void resize() override;
+private:
+    void layout();
+};
+
+
+
 }

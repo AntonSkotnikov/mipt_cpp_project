@@ -40,6 +40,7 @@ public:
     virtual bool focusable() const { return false; }
 
     virtual void setRect(Rect rect) { rect_ = rect; }
+    Rect rect() const { return rect_; }
 
     virtual void setFocus(bool value) { focused_ = value; }
     bool focused() const { return focused_; }
@@ -61,6 +62,64 @@ private:
     std::vector<std::string> lines_;
 public:
     Info(Window & win, std::string text);
+    void draw() override;
+};
+
+class Dialog final : public Widget {
+private:
+    std::vector<std::string> lines_;
+    std::vector<std::unique_ptr<Button>> buttons_;
+    std::size_t selectedIndex_ = 0;
+
+    void layoutButtons();
+    std::size_t selectableCount() const;
+    void select(std::size_t index);
+public:
+    Dialog(Window & win, std::string text);
+    void addButton(std::string text, std::function<request::UIRequest()> cb);
+    void setRect(Rect rect) override;
+    void setFocus(bool value) override;
+    void draw() override;
+    InputResult handleInput(int key) override;
+    bool focusable() const override { return !buttons_.empty(); }
+};
+
+class TextInput final : public Widget {
+    std::string text_{};
+    std::size_t cursor_ = 0;
+public:
+    TextInput(Window & win);
+    void draw() override;
+    InputResult handleInput(int key) override;
+    bool focusable() const override {return true;}
+};
+
+//Decorators
+class WidgetDecorator : public Widget {
+protected:
+    std::unique_ptr<Widget> inner_;
+public:
+    WidgetDecorator(Window & win, std::unique_ptr<Widget> inner);
+
+    void setFocus(bool value) override;
+    InputResult handleInput(int key) override;
+    bool focusable() const override;
+};
+
+class FrameDecorator final : public WidgetDecorator {
+public:
+    FrameDecorator(Window & win, std::unique_ptr<Widget> inner);
+
+    void setRect(Rect rect) override;
+    void draw() override;
+};
+
+class LabelDecorator final : public WidgetDecorator {
+    std::string label_;
+public:
+    LabelDecorator(Window & win, std::unique_ptr<Widget> inner, std::string label);
+
+    void setRect(Rect rect) override;
     void draw() override;
 };
 
