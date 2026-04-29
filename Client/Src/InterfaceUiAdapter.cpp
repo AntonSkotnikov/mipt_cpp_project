@@ -5,19 +5,15 @@
 namespace plague {
 
 InterfaceUiAdapter::InterfaceUiAdapter() {
-    initscr();
-    cbreak();
-    noecho();
-    keypad(stdscr, TRUE);
+    manager_ = std::make_unique<ui::UIManager>();
     timeout(100);
-    curs_set(0);
-}
-
-InterfaceUiAdapter::~InterfaceUiAdapter() {
-    endwin();
 }
 
 void InterfaceUiAdapter::render(const GameSnapshot& snapshot) {
+    if (usesInterfaceLoop(snapshot)) {
+        return;
+    }
+
     switch (snapshot.situation) {
     case GameSituation::MainMenu:
         renderScreen(snapshot, "Main Menu", "Connect to server", "Settings", "Exit");
@@ -55,6 +51,10 @@ void InterfaceUiAdapter::render(const GameSnapshot& snapshot) {
 }
 
 request::UIRequest InterfaceUiAdapter::pollRequest(const GameSnapshot& snapshot) {
+    if (usesInterfaceLoop(snapshot)) {
+        return manager_->loop(snapshot);
+    }
+
     const int key = getch();
 
     if (key == ERR || key == KEY_RESIZE) {
@@ -105,6 +105,10 @@ request::UIRequest InterfaceUiAdapter::pollRequest(const GameSnapshot& snapshot)
 
 void InterfaceUiAdapter::showMessage(const char* text) {
     last_message_ = text != nullptr ? text : "";
+}
+
+bool InterfaceUiAdapter::usesInterfaceLoop(const GameSnapshot& snapshot) const {
+    return snapshot.situation == GameSituation::MainMenu;
 }
 
 void InterfaceUiAdapter::renderScreen(const GameSnapshot& snapshot,
