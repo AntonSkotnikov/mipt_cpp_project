@@ -2,6 +2,7 @@
 #include "ScreenManager.hpp"
 #include "Settings.hpp"
 #include "UIRequest.hpp"
+#include "UI_ClientAPI.hpp"
 #include <cstdlib>
 #include <stdexcept>
 #include <ncurses.h>
@@ -36,7 +37,8 @@ UIManager::~UIManager() {
     endwin();
 }
 
-request::UIRequest UIManager::loop() {
+request::UIRequest UIManager::loop(GameSnapshot snap) {
+    snap_ = snap;
     man_->curScreen->draw();
     int key = man_->curScreen->getKey();
     return man_->curScreen->handleInput(key);

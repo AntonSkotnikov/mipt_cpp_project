@@ -13,7 +13,7 @@ class UIManager final {
 private:
     std::unique_ptr<ScreenManager> man_;
     Config        cfg_;
-    GameSituation snap_;
+    GameSnapshot snap_;
 
 public:
     UIManager(); // init of ncurses etc
