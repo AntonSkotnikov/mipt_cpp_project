@@ -2,6 +2,13 @@
 
 namespace plague {
 
+namespace {
+
+constexpr const char* kServerHost = "127.0.0.1";
+constexpr int kServerPort = 5555;
+
+}
+
 ClientApp::ClientApp(IUserInterface& ui, ITransport& transport)
     : ui_(ui), transport_(transport), request_handler_(std::make_unique<RequestHandler>(transport)) {}
 
@@ -24,6 +31,7 @@ void ClientApp::handleRequest(const request::UIRequest& request) {
         if (std::holds_alternative<request::MainMenu>(request) &&
             std::get<request::MainMenu>(request) == request::MainMenu::ConnectToServer) {
             setSituation(GameSituation::ConnectingToServer);
+            ui_.showMessage("");
         } else if (std::holds_alternative<request::MainMenu>(request) &&
                    std::get<request::MainMenu>(request) == request::MainMenu::OpenSettings) {
             setSituation(GameSituation::Settings);
@@ -41,41 +49,93 @@ void ClientApp::handleRequest(const request::UIRequest& request) {
         }
         break;
 
+    case GameSituation::ConnectToServer:
     case GameSituation::ConnectingToServer:
         if (std::holds_alternative<request::Connect>(request) &&
             std::get<request::Connect>(request) == request::Connect::Submit) {
-            if (transport_.connectToServer("127.0.0.1", 5555)) {
-                ui_.showMessage("Connected to server.");
-                setSituation(GameSituation::ChoosingSide);
-            } else {
+            if (request_handler_->hasPendingRequests()) {
+                break;
+            }
+
+            if (!transport_.isConnected() && !transport_.connectToServer(kServerHost, kServerPort)) {
                 ui_.showMessage("Connection failed.");
                 setSituation(GameSituation::MainMenu);
+                break;
             }
+
+            ui_.showMessage("Connecting to server...");
+            request_handler_->sendRequest(
+                ClientCommand::Connect,
+                "",
+                [this](const ServerResponse& response) {
+                    if (response.success) {
+                        ui_.showMessage("Connected to server.");
+                        setSituation(GameSituation::ChoosingSide);
+                    } else {
+                        ui_.showMessage(response.error_message.empty() ? "Connection failed." : response.error_message.c_str());
+                        transport_.disconnect();
+                        setSituation(GameSituation::MainMenu);
+                    }
+                },
+                [this](RequestId) {
+                    ui_.showMessage("Connection timeout.");
+                    transport_.disconnect();
+                    setSituation(GameSituation::MainMenu);
+                });
         } else if (std::holds_alternative<request::Connect>(request) &&
                    std::get<request::Connect>(request) == request::Connect::Cancel) {
             setSituation(GameSituation::MainMenu);
+            ui_.showMessage("");
         }
         break;
 
+    case GameSituation::ConnectingToServerFailed:
+        setSituation(GameSituation::MainMenu);
+        break;
+
     case GameSituation::ChoosingSide:
+        if (request_handler_->hasPendingRequests()) {
+            break;
+        }
+
         if (std::holds_alternative<request::SideSelection>(request) &&
             std::get<request::SideSelection>(request) == request::SideSelection::ChooseHumanity) {
-            if (transport_.isConnected() && transport_.send(ClientPackage{ClientCommand::ChooseHumanity, ""})) {
-                ui_.showMessage("Humanity selected.");
-                setSituation(GameSituation::Game);
-            } else {
-                ui_.showMessage("Failed to notify server.");
-                setSituation(GameSituation::MainMenu);
-            }
+            ui_.showMessage("Sending humanity choice...");
+            request_handler_->sendRequest(
+                ClientCommand::ChooseHumanity,
+                "",
+                [this](const ServerResponse& response) {
+                    if (response.success) {
+                        ui_.showMessage("Humanity selected.");
+                        setSituation(GameSituation::Game);
+                    } else {
+                        ui_.showMessage(response.error_message.empty() ? "Failed to notify server." : response.error_message.c_str());
+                        setSituation(GameSituation::MainMenu);
+                    }
+                },
+                [this](RequestId) {
+                    ui_.showMessage("Server timeout. Try again.");
+                    setSituation(GameSituation::MainMenu);
+                });
         } else if (std::holds_alternative<request::SideSelection>(request) &&
                    std::get<request::SideSelection>(request) == request::SideSelection::ChoosePathogen) {
-            if (transport_.isConnected() && transport_.send(ClientPackage{ClientCommand::ChoosePathogen, ""})) {
-                ui_.showMessage("Pathogen selected.");
-                setSituation(GameSituation::Game);
-            } else {
-                ui_.showMessage("Failed to notify server.");
-                setSituation(GameSituation::MainMenu);
-            }
+            ui_.showMessage("Sending pathogen choice...");
+            request_handler_->sendRequest(
+                ClientCommand::ChoosePathogen,
+                "",
+                [this](const ServerResponse& response) {
+                    if (response.success) {
+                        ui_.showMessage("Pathogen selected.");
+                        setSituation(GameSituation::Game);
+                    } else {
+                        ui_.showMessage(response.error_message.empty() ? "Failed to notify server." : response.error_message.c_str());
+                        setSituation(GameSituation::MainMenu);
+                    }
+                },
+                [this](RequestId) {
+                    ui_.showMessage("Server timeout. Try again.");
+                    setSituation(GameSituation::MainMenu);
+                });
         } else if (std::holds_alternative<request::SideSelection>(request) &&
                    std::get<request::SideSelection>(request) == request::SideSelection::Disconnect) {
             transport_.disconnect();

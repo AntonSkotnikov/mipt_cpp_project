@@ -1,7 +1,6 @@
 #pragma once
 
 #include "IUserInterface.hpp"
-#include "UIManager.hpp"
 
 #include <string>
 
@@ -17,12 +16,12 @@ public:
     void showMessage(const char* text) override;
 
 private:
-    bool isManagedByUiManager(GameSituation situation) const;
-    void renderFallback(GameSituation situation) const;
-    request::UIRequest pollFallbackRequest(GameSituation situation) const;
+    void renderScreen(const char* title,
+                      const char* option1 = nullptr,
+                      const char* option2 = nullptr,
+                      const char* option3 = nullptr) const;
 
 private:
-    ui::UiManager manager_{};
     std::string last_message_{};
 };
 

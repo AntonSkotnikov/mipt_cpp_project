@@ -18,8 +18,10 @@ enum class GameSituation {
     Settings,
     ConnectToServer,
     Exit,
+    Exiting = Exit,
 
     СonnectingToServer,
+    ConnectingToServer = СonnectingToServer,
     ConnectingToServerFailed,
 
     ChoosingSide,

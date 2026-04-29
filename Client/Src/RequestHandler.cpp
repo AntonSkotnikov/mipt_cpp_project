@@ -1,4 +1,5 @@
 #include "RequestHandler.hpp"
+
 #include <vector>
 
 namespace plague {
@@ -23,6 +24,7 @@ RequestId RequestHandler::sendRequest(ClientCommand command,
     pending_requests_.emplace(req_id, PendingRequest{
         req_id,
         command,
+        payload,
         std::move(on_response),
         std::move(on_timeout),
         deadline,
@@ -30,74 +32,58 @@ RequestId RequestHandler::sendRequest(ClientCommand command,
         config
     });
 
-    std::string enriched_payload = std::to_string(req_id) + "|" + payload;
-    outbound_queue_.push(ClientPackage{command, std::move(enriched_payload)});
-
-    if (transport_.isConnected()) {
-        while (!outbound_queue_.empty()) {
-            if (transport_.send(outbound_queue_.front())) {
-                outbound_queue_.pop();
-            } else {
-                break;
-            }
-        }
-    }
-
+    enqueueOutgoing(req_id, command, payload);
+    flushOutboundQueue();
     return req_id;
 }
 
 void RequestHandler::handleIncoming(const ServerResponse& response) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    ResponseCallback callback;
 
-    auto it = pending_requests_.find(response.request_id);
-    if (it == pending_requests_.end()) {
-        return;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        const auto it = pending_requests_.find(response.request_id);
+        if (it == pending_requests_.end()) {
+            return;
+        }
+
+        callback = std::move(it->second.on_response);
+        pending_requests_.erase(it);
     }
 
-    if (it->second.on_response) {
-        it->second.on_response(response);
+    if (callback) {
+        callback(response);
     }
-
-    pending_requests_.erase(it);
 }
 
 void RequestHandler::update() {
-    std::lock_guard<std::mutex> lock(mutex_);
-    const auto now = std::chrono::steady_clock::now();
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        flushOutboundQueue();
+    }
 
-    if (transport_.isConnected()) {
-        while (!outbound_queue_.empty()) {
-            if (transport_.send(outbound_queue_.front())) {
-                outbound_queue_.pop();
+    ServerResponse response;
+    while (transport_.pollResponse(response)) {
+        handleIncoming(response);
+    }
+
+    std::vector<PendingRequest> expired_requests;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        const auto now = std::chrono::steady_clock::now();
+
+        for (auto it = pending_requests_.begin(); it != pending_requests_.end();) {
+            if (now >= it->second.deadline) {
+                expired_requests.push_back(it->second);
+                it = pending_requests_.erase(it);
             } else {
-                break;
+                ++it;
             }
         }
     }
 
-    std::vector<RequestId> timed_out;
-    for (const auto& pair : pending_requests_) {
-        if (now >= pair.second.deadline) {
-            timed_out.push_back(pair.first);
-        }
-    }
-
-    for (RequestId id : timed_out) {
-        auto it = pending_requests_.find(id);
-        if (it != pending_requests_.end()) {
-            PendingRequest req = std::move(it->second);
-            pending_requests_.erase(it);
-            processTimeout(req);
-        }
-    }
-}
-
-void RequestHandler::processTimeout(const PendingRequest& req) {
-    if (req.retries_left > 0 && transport_.isConnected()) {
-        std::string enriched_payload = std::to_string(req.id) + "|" + std::to_string(static_cast<int>(req.command));
-        outbound_queue_.push(ClientPackage{req.command, std::move(enriched_payload)});
-    } else if (req.on_timeout) {
-        req.on_timeout(req.id);
+    for (const PendingRequest& request : expired_requests) {
+        processTimeout(request);
     }
 }
 
@@ -109,6 +95,41 @@ void RequestHandler::cancelRequest(RequestId id) {
 bool RequestHandler::hasPendingRequests() const {
     std::lock_guard<std::mutex> lock(mutex_);
     return !pending_requests_.empty();
+}
+
+void RequestHandler::enqueueOutgoing(RequestId id, ClientCommand command, const std::string& payload) {
+    outbound_queue_.push(ClientPackage{command, std::to_string(id) + "|" + payload});
+}
+
+void RequestHandler::flushOutboundQueue() {
+    if (!transport_.isConnected()) {
+        return;
+    }
+
+    while (!outbound_queue_.empty()) {
+        if (!transport_.send(outbound_queue_.front())) {
+            break;
+        }
+        outbound_queue_.pop();
+    }
+}
+
+void RequestHandler::processTimeout(const PendingRequest& req) {
+    if (req.retries_left > 0 && transport_.isConnected()) {
+        PendingRequest retried_request = req;
+        retried_request.retries_left -= 1;
+        retried_request.deadline = std::chrono::steady_clock::now() + retried_request.config.timeout;
+
+        std::lock_guard<std::mutex> lock(mutex_);
+        pending_requests_[retried_request.id] = retried_request;
+        enqueueOutgoing(retried_request.id, retried_request.command, retried_request.payload);
+        flushOutboundQueue();
+        return;
+    }
+
+    if (req.on_timeout) {
+        req.on_timeout(req.id);
+    }
 }
 
 }

@@ -1,25 +1,17 @@
 #pragma once
 
-#include "ITransport.hpp"
+#include "Client_ServerAPI.hpp"
 #include "ClientPackage.hpp"
-#include <functional>
-#include <unordered_map>
-#include <queue>
+#include "ITransport.hpp"
+
 #include <chrono>
+#include <functional>
 #include <mutex>
+#include <queue>
 #include <string>
-#include <cstdint>
+#include <unordered_map>
 
 namespace plague {
-
-using RequestId = std::uint32_t;
-
-struct ServerResponse {
-    RequestId request_id{};
-    bool success{false};
-    std::string payload{};
-    std::string error_message{};
-};
 
 using ResponseCallback = std::function<void(const ServerResponse&)>;
 using TimeoutCallback = std::function<void(RequestId)>;
@@ -33,10 +25,10 @@ class RequestHandler {
 public:
     RequestHandler(ITransport& transport);
     RequestId sendRequest(ClientCommand command,
-                         std::string payload,
-                         ResponseCallback on_response,
-                         TimeoutCallback on_timeout = nullptr,
-                         RequestConfig config = {});
+                          std::string payload,
+                          ResponseCallback on_response,
+                          TimeoutCallback on_timeout = nullptr,
+                          RequestConfig config = {});
     void handleIncoming(const ServerResponse& response);
     void update();
     void cancelRequest(RequestId id);
@@ -46,6 +38,7 @@ private:
     struct PendingRequest {
         RequestId id;
         ClientCommand command;
+        std::string payload;
         ResponseCallback on_response;
         TimeoutCallback on_timeout;
         std::chrono::steady_clock::time_point deadline;
@@ -54,6 +47,8 @@ private:
     };
 
     RequestId generateRequestId();
+    void enqueueOutgoing(RequestId id, ClientCommand command, const std::string& payload);
+    void flushOutboundQueue();
     void processTimeout(const PendingRequest& req);
 
 private:

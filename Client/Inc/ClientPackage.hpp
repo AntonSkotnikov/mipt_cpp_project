@@ -1,16 +1,10 @@
 #pragma once
 
+#include "Client_ServerAPI.hpp"
+
 #include <string>
 
 namespace plague {
-
-enum class ClientCommand {
-    Connect,
-    Disconnect,
-    ChooseHumanity,
-    ChoosePathogen,
-    Ping
-};
 
 struct ClientPackage {
     ClientCommand command{};
