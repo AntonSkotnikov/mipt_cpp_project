@@ -6,6 +6,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace plague::ui {
@@ -95,6 +96,20 @@ public:
     std::string getText();
 };
 
+struct symbolOnScreen {
+    int y, x;
+    std::string_view symbol;
+};
+
+class DetalizedImage final : public Widget {
+    std::vector<symbolOnScreen> symbols;
+public:
+    DetalizedImage(Window & win);
+    void draw() override;
+    InputResult handleInput(int key) override;
+    void addSymbol(symbolOnScreen newSymbol);
+};
+
 //Decorators
 class WidgetDecorator : public Widget {
 protected:
@@ -122,6 +137,17 @@ public:
 
     void setRect(Rect rect) override;
     void draw() override;
+};
+
+class ColorDecorator final : public WidgetDecorator {
+    int colorPair_;
+public:
+    ColorDecorator(Window & win, std::unique_ptr<Widget> inner, int colorPair);
+
+    void setRect(Rect rect) override;
+    void draw() override;
+
+    void setColorPair(int newColorPair);
 };
 
 class Menu final : public Widget {
