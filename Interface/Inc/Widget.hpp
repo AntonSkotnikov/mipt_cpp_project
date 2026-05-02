@@ -96,18 +96,17 @@ public:
     std::string getText();
 };
 
-struct symbolOnScreen {
+struct SymbolOnScreen {
     int y, x;
     std::string_view symbol;
 };
 
 class DetalizedImage final : public Widget {
-    std::vector<symbolOnScreen> symbols;
+    std::vector<SymbolOnScreen> symbols;
 public:
     DetalizedImage(Window & win);
     void draw() override;
-    InputResult handleInput(int key) override;
-    void addSymbol(symbolOnScreen newSymbol);
+    void addSymbol(SymbolOnScreen newSymbol);
 };
 
 //Decorators

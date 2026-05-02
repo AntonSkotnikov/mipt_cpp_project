@@ -261,6 +261,17 @@ std::string TextInput::getText() {
     return text_;
 }
 
+DetalizedImage::DetalizedImage(Window & win) : Widget(win) {}
+
+void DetalizedImage::draw() {
+    for (SymbolOnScreen symbol : symbols) {
+        win_.print(rect_.y + symbol.y, rect_.x + symbol.x, symbol.symbol);
+    }
+}
+
+void DetalizedImage::addSymbol(SymbolOnScreen newSymbol) {
+    symbols.push_back(newSymbol);
+}
 
 // Decorators
 WidgetDecorator::WidgetDecorator(Window & win, std::unique_ptr<Widget> inner) : Widget(win), inner_(std::move(inner)) {}
