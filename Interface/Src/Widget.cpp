@@ -358,6 +358,40 @@ void LabelDecorator::draw() {
     }
 }
 
+ColorDecorator::ColorDecorator(Window & win, std::unique_ptr<Widget> inner, int colorPair)
+    : WidgetDecorator(win, std::move(inner)), colorPair_(colorPair) {}
+
+void ColorDecorator::setRect(Rect rect) {
+    if (!inner_) {
+        Widget::setRect(rect);
+        return;
+    }
+
+    inner_->setRect(rect);
+    const Rect innerRect = inner_->rect();
+
+    Widget::setRect(innerRect);
+}
+
+void ColorDecorator::draw() {
+    if (rect_.height <= 0 || rect_.width <= 0) {
+        return;
+    }
+
+    win_.attrOn(COLOR_PAIR(colorPair_));
+
+    if (inner_) {
+        inner_->draw();
+    }
+
+    win_.attrOff(COLOR_PAIR(colorPair_));
+}
+
+void ColorDecorator::setColorPair(int newColorPair) {
+    colorPair_ = newColorPair;
+}
+
+
 Menu::Menu(Window & win) : Widget(win) {}
 
 void Menu::addButton(std::string text, std::function<request::UIRequest()> cb) {
