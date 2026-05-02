@@ -92,6 +92,7 @@ public:
     void draw() override;
     InputResult handleInput(int key) override;
     bool focusable() const override {return true;}
+    std::string getText();
 };
 
 //Decorators

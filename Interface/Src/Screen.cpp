@@ -196,21 +196,43 @@ request::UIRequest SmallTermScreen::handleInput(int key) {
 }
 
 ConnectToServerScreen::ConnectToServerScreen(Config & cfg, Window & win) : Screen(cfg, win) {
-    widgets.push_back(std::make_unique<LabelDecorator>(win_, std::make_unique<FrameDecorator>(win_, std::make_unique<TextInput>(win_)), "Address"));
-    widgets.push_back(std::make_unique<LabelDecorator>(win_, std::make_unique<FrameDecorator>(win_, std::make_unique<TextInput>(win_)), "Port"));
+    auto addressInput = std::make_unique<TextInput>(win_);
+    auto portInput = std::make_unique<TextInput>(win_);
+
+    TextInput * address = addressInput.get();
+    TextInput * port = portInput.get();
+
+    widgets.push_back(std::make_unique<LabelDecorator>(
+        win_,
+        std::make_unique<FrameDecorator>(win_, std::move(addressInput)),
+        "Address"
+    ));
+
+    widgets.push_back(std::make_unique<LabelDecorator>(
+        win_,
+        std::make_unique<FrameDecorator>(win_, std::move(portInput)),
+        "Port"
+    ));
 
     auto menuWidget = std::make_unique<Menu>(win_);
-    menuWidget->addButton("Connect", []() -> request::UIRequest {
-        return request::Connect::Connect;
+    menuWidget->addButton("Connect", [address, port]() -> request::UIRequest {
+        return request::ConnectInfo{
+            request::Connect::Connect,
+            address->getText(),
+            port->getText()
+        };
     });
+
     menuWidget->addButton("Back", []() -> request::UIRequest {
-        return request::Connect::Back;
+        return request::ConnectInfo{request::Connect::Back, "", ""};
     });
+
     widgets.push_back(std::move(menuWidget));
 
     layout();
     focusFirst();
 }
+
 
 void ConnectToServerScreen::layout() {
     if (widgets.size() < 3) return;
@@ -261,9 +283,6 @@ request::UIRequest ConnectToServerScreen::handleInput(int key) {
         case '\t':
             focusNext();
             return request::None{};
-
-        case 27:
-            return request::Connect::Back;
     }
 
     return request::None{};

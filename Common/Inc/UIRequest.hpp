@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include <variant>
 
 namespace plague::request {
@@ -21,11 +22,17 @@ enum class Connect {
     Connect
 };
 
+struct ConnectInfo {
+    Connect id;
+    std::string addr;
+    std::string port;
+};
+
 using UIRequest = std::variant<
     None,
     MainMenu,
     Settings,
-    Connect
+    ConnectInfo
 >;
 
 }  // namespace plague::request

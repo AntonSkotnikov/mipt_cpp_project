@@ -257,6 +257,10 @@ InputResult TextInput::handleInput(int key) {
     return {};
 }
 
+std::string TextInput::getText() {
+    return text_;
+}
+
 
 // Decorators
 WidgetDecorator::WidgetDecorator(Window & win, std::unique_ptr<Widget> inner) : Widget(win), inner_(std::move(inner)) {}
