@@ -21,14 +21,16 @@ inline const std::map<Resolutions, TerminalProfile> terminalProfiles = {
 };
 
 enum class ScreenIds {
+    SmallTerm,
     MainMenu,
     Connect,
-    Setting
+    Settings
 };
 
 struct Config {
     Resolutions resolution = Resolutions::Medium;
     ScreenIds id = ScreenIds::MainMenu;
+    bool terminalTooSmall = false;
 };
 
 }

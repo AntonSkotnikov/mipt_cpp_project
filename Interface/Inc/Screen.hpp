@@ -25,7 +25,10 @@ protected:
     Config & cfg_;
     Window & win_;
 
+    void focusFirst();
     void focusWidget(std::size_t index);
+    void focusNext();
+    void focusPrev();
     Widget * focusedWidget();
     std::size_t focusedIndex_ = 0;
 };
@@ -40,5 +43,29 @@ public:
 private:
     void layout();
 };
+
+class SmallTermScreen final: public Screen {
+public:
+    SmallTermScreen(Config & cfg, Window & win);
+
+    void draw() override;
+    request::UIRequest handleInput(int key) override;
+    void resize() override;
+private:
+    void layout();
+};
+
+class ConnectToServerScreen final : public Screen {
+public:
+    ConnectToServerScreen(Config & cfg, Window & win);
+
+    void draw() override;
+    request::UIRequest handleInput(int key) override;
+    void resize() override;
+private:
+    void layout();
+};
+
+
 
 }

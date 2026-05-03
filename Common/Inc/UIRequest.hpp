@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include <variant>
 
 namespace plague::request {
@@ -17,32 +18,21 @@ enum class Settings {
 };
 
 enum class Connect {
-    Submit,
-    Cancel
+    Back,
+    Connect
 };
 
-enum class SideSelection {
-    ChooseHumanity,
-    ChoosePathogen,
-    Disconnect
-};
-
-enum class Game {
-    Leave
-};
-
-enum class EndScreen {
-    BackToMainMenu
+struct ConnectInfo {
+    Connect id;
+    std::string addr;
+    std::string port;
 };
 
 using UIRequest = std::variant<
     None,
     MainMenu,
     Settings,
-    Connect,
-    SideSelection,
-    Game,
-    EndScreen
+    ConnectInfo
 >;
 
 }  // namespace plague::request
