@@ -4,6 +4,10 @@
 
 namespace plague {
 
+namespace {
+int g_current_selection = 1;
+}
+
 InterfaceUiAdapter::InterfaceUiAdapter() {
     manager_ = std::make_unique<ui::UIManager>();
     timeout(100);
@@ -61,6 +65,27 @@ request::UIRequest InterfaceUiAdapter::pollRequest(const GameSnapshot& snapshot)
         return request::None{};
     }
 
+    int num_options = 0;
+    switch (snapshot.situation) {
+    case GameSituation::Settings:
+    case GameSituation::ConnectingToServerFailed:
+    case GameSituation::Game:
+    case GameSituation::EndScreen:
+        num_options = 1; break;
+    case GameSituation::ConnectToServer:
+    case GameSituation::ConnectingToServer:
+        num_options = 2; break;
+    case GameSituation::ChoosingSide:
+        num_options = 3; break;
+    default: break;
+    }
+
+    if (key == KEY_UP && num_options > 0) {
+        g_current_selection = (g_current_selection > 1) ? g_current_selection - 1 : num_options;
+    } else if (key == KEY_DOWN && num_options > 0) {
+        g_current_selection = (g_current_selection < num_options) ? g_current_selection + 1 : 1;
+    }
+
     switch (snapshot.situation) {
     case GameSituation::MainMenu:
         if (key == '1') return request::MainMenu::ConnectToServer;
@@ -69,31 +94,40 @@ request::UIRequest InterfaceUiAdapter::pollRequest(const GameSnapshot& snapshot)
         break;
 
     case GameSituation::Settings:
-        if (key == '1' || key == 27) return request::Settings::Back;
+        if (key == '\n' || key == '\r' || key == KEY_ENTER || key == '1' || key == 27) return request::Settings::Back;
         break;
 
     case GameSituation::ConnectToServer:
     case GameSituation::ConnectingToServer:
-        if (key == '1' || key == '\n' || key == '\r' || key == KEY_ENTER) return request::Connect::Submit;
-        if (key == '2' || key == 27) return request::Connect::Cancel;
+        if (key == '\n' || key == '\r' || key == KEY_ENTER) {
+            if (g_current_selection == 1) return request::ConnectInfo{request::Connect::Connect, "", ""};
+            if (g_current_selection == 2) return request::ConnectInfo{request::Connect::Back, "", ""};
+        }
+        if (key == '1') return request::ConnectInfo{request::Connect::Connect, "", ""};
+        if (key == '2' || key == 27) return request::ConnectInfo{request::Connect::Back, "", ""};
         break;
 
     case GameSituation::ConnectingToServerFailed:
-        if (key == '1' || key == '\n' || key == '\r' || key == KEY_ENTER || key == 27) return request::Settings::Back;
+        if (key == '\n' || key == '\r' || key == KEY_ENTER || key == '1' || key == 27) return request::Settings::Back;
         break;
 
     case GameSituation::ChoosingSide:
-        if (key == '1') return request::SideSelection::ChooseHumanity;
-        if (key == '2') return request::SideSelection::ChoosePathogen;
-        if (key == '3' || key == 27) return request::SideSelection::Disconnect;
+        if (key == '\n' || key == '\r' || key == KEY_ENTER) {
+            if (g_current_selection == 1) return request::MainMenu::ConnectToServer;
+            if (g_current_selection == 2) return request::MainMenu::OpenSettings;
+            if (g_current_selection == 3) return request::MainMenu::Exit;
+        }
+        if (key == '1') return request::MainMenu::ConnectToServer;
+        if (key == '2') return request::MainMenu::OpenSettings;
+        if (key == '3' || key == 27) return request::MainMenu::Exit;
         break;
 
     case GameSituation::Game:
-        if (key == '1' || key == '\n' || key == '\r' || key == KEY_ENTER) return request::Game::Leave;
+        if (key == '\n' || key == '\r' || key == KEY_ENTER || key == '1') return request::Settings::Back;
         break;
 
     case GameSituation::EndScreen:
-        if (key == '1' || key == '\n' || key == '\r' || key == KEY_ENTER) return request::EndScreen::BackToMainMenu;
+        if (key == '\n' || key == '\r' || key == KEY_ENTER || key == '1') return request::Settings::Back;
         break;
 
     case GameSituation::Exiting:
@@ -121,15 +155,31 @@ void InterfaceUiAdapter::renderScreen(const GameSnapshot& snapshot,
 
     mvprintw(2, 2, "%s", title);
 
+    int num_options = 0;
+    if (option1 != nullptr) num_options++;
+    if (option2 != nullptr) num_options++;
+    if (option3 != nullptr) num_options++;
+
+    if (g_current_selection < 1) g_current_selection = 1;
+    if (num_options > 0 && g_current_selection > num_options) {
+        g_current_selection = num_options;
+    }
+
     int line = 4;
     if (option1 != nullptr) {
+        if (g_current_selection == 1) attron(A_REVERSE);
         mvprintw(line++, 2, "1) %s", option1);
+        if (g_current_selection == 1) attroff(A_REVERSE);
     }
     if (option2 != nullptr) {
+        if (g_current_selection == 2) attron(A_REVERSE);
         mvprintw(line++, 2, "2) %s", option2);
+        if (g_current_selection == 2) attroff(A_REVERSE);
     }
     if (option3 != nullptr) {
+        if (g_current_selection == 3) attron(A_REVERSE);
         mvprintw(line++, 2, "3) %s", option3);
+        if (g_current_selection == 3) attroff(A_REVERSE);
     }
 
     mvprintw(line + 1, 2, "Day: %u", static_cast<unsigned>(snapshot.day));
