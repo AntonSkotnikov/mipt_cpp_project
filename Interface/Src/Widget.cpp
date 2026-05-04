@@ -57,6 +57,66 @@ InputResult Button::handleInput(int key) {
     return {};
 }
 
+VariableInfo::VariableInfo(Window & win, std::string text) : Widget(win), line_(std::move(text)) {}
+
+void VariableInfo::draw() {
+    if (rect_.height <= 1 || rect_.width <= 0) {
+        return;
+    }
+    win_.print(rect_.y, rect_.x, clipped(line_, rect_.width));
+}
+
+void VariableInfo::changeLine(std::string newLine) {
+    line_ = std::move(newLine);
+}
+
+Ticker::Ticker(Window & win, std::size_t speed) : Widget(win), speed_(std::max<std::size_t>(1, speed)) {}
+
+void Ticker::draw() {
+    if (rect_.height <= 0 || rect_.width <= 0) {
+        return;
+    }
+
+    if (curLine_.empty()) {
+        loadNextLine();
+    }
+
+    const std::string visible = curLine_.substr(0, visibleLength_);
+    const std::string line = clipped(visible, rect_.width);
+    win_.print(rect_.y, rect_.x, line + repeat(' ', rect_.width - static_cast<int>(line.size())));
+
+    timer_++;
+    if (timer_ < speed_) {
+        return;
+    }
+
+    timer_ = 0;
+
+    if (visibleLength_ < curLine_.size()) {
+        visibleLength_++;
+        return;
+    }
+
+    if (!linesQueue_.empty()) {
+        loadNextLine();
+    }
+}
+
+void Ticker::addLine(std::string newLine) {
+    linesQueue_.push_back(std::move(newLine));
+}
+
+void Ticker::loadNextLine() {
+    if (linesQueue_.empty()) {
+        return;
+    }
+
+    curLine_ = std::move(linesQueue_.front());
+    linesQueue_.erase(linesQueue_.begin());
+    visibleLength_ = curLine_.empty() ? 0 : 1;
+    timer_ = 0;
+}
+
 Info::Info(Window & win, std::string text) : Widget(win) {
     lines_.clear();
 

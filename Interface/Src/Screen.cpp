@@ -288,4 +288,8 @@ request::UIRequest ConnectToServerScreen::handleInput(int key) {
     return request::None{};
 }
 
+GameScreen::GameScreen(Config & cfg, Window & win) : Screen(cfg, win) {
+    //TODO widgets
+}
+
 }

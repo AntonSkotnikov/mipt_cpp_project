@@ -58,6 +58,30 @@ public:
     bool focusable() const override { return true; }
 };
 
+class VariableInfo final : public Widget {
+private:
+    std::string line_;
+public:
+    VariableInfo(Window & win, std::string text);
+    void draw() override;
+    void changeLine(std::string newLine);
+};
+
+class Ticker final : public Widget {
+private:
+    std::size_t speed_;
+    std::size_t timer_ = 0;
+    std::size_t visibleLength_ = 0;
+    std::string curLine_;
+    std::vector<std::string> linesQueue_;
+
+    void loadNextLine();
+public:
+    Ticker(Window & win, std::size_t speed);
+    void draw() override;
+    void addLine(std::string newLine);
+};
+
 class Info final : public Widget {
 private:
     std::vector<std::string> lines_;

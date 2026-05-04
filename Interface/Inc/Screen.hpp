@@ -66,6 +66,15 @@ private:
     void layout();
 };
 
+class GameScreen final : public Screen {
+public:
+    GameScreen(Config & cfg, Window & win);
 
+    void draw() override;
+    request::UIRequest handleInput(int key) override;
+    void resize() override;
+private:
+    void layout();
+};
 
 }
