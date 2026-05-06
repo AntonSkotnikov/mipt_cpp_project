@@ -11,6 +11,14 @@ ScreenManager::ScreenManager(Config & cfg) : cfg_(cfg),
                                              smallTerm_{cfg, mainWin_},
                                              mainMenu_{cfg, mainWin_},
                                              connect_(cfg, mainWin_),
+                                             game_{cfg, mainWin_},
+                                             //info_{cfg, mainWin_},
+                                             //trans_{cfg, mainWin_},
+                                             //clinic_{cfg, mainWin_},
+                                             //abilities_{cfg, mainWin_},
+                                             //world_{cfg, mainWin_},
+                                             //cure_{cfg, mainWin_},
+                                             //news_{cfg, mainWin_},
                                              curScreen(&mainMenu_) {
     selectCurrentScreen();
     applyWindowLayout();
@@ -20,7 +28,17 @@ ScreenManager::ScreenManager(Config & cfg) : cfg_(cfg),
 void ScreenManager::resize() {
     selectCurrentScreen();
     applyWindowLayout();
-    curScreen->resize();
+    smallTerm_.resize();
+    mainMenu_.resize();
+    connect_.resize();
+    game_.resize();
+    //info_.resize();
+    //trans_.resize();
+    //clinic_.resize();
+    //abilities_.resize();
+    //world_.resize();
+    //cure_.resize();
+    //news_.resize();
 }
 
 void ScreenManager::applyWindowLayout() {
@@ -62,6 +80,30 @@ void ScreenManager::selectCurrentScreen() {
             return;
         case ScreenIds::Settings:
             curScreen = &mainMenu_;
+            return;
+        case ScreenIds::Game:
+            curScreen = &game_;
+            return;
+        case ScreenIds::Info:
+            //curScreen = &info_;
+            return;
+        case ScreenIds::Transmission:
+            //curScreen = &trans_;
+            return;
+        case ScreenIds::Clinic:
+            //curScreen = &clinic_;
+            return;
+        case ScreenIds::Abilities:
+            //curScreen = &abilities_;
+            return;
+        case ScreenIds::World:
+            //curScreen = &world_;
+            return;
+        case ScreenIds::Cure:
+            //curScreen = &cure_;
+            return;
+        case ScreenIds::News:
+            //curScreen = &news_;
             return;
     }
 }

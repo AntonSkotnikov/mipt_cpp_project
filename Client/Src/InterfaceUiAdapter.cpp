@@ -142,7 +142,10 @@ void InterfaceUiAdapter::showMessage(const char* text) {
 }
 
 bool InterfaceUiAdapter::usesInterfaceLoop(const GameSnapshot& snapshot) const {
-    return snapshot.situation == GameSituation::MainMenu;
+    return snapshot.situation == GameSituation::MainMenu ||
+           snapshot.situation == GameSituation::ConnectToServer ||
+           snapshot.situation == GameSituation::ConnectingToServer ||
+           snapshot.situation == GameSituation::Game;
 }
 
 void InterfaceUiAdapter::renderScreen(const GameSnapshot& snapshot,

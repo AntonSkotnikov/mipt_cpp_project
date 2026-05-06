@@ -14,7 +14,7 @@ class Screen {
 public:
     virtual ~Screen() = default;
 
-    virtual void draw() = 0;
+    void draw();
     virtual request::UIRequest handleInput(int key) = 0;
     virtual void resize();
     int getKey();
@@ -37,7 +37,6 @@ class MainMenuScreen final: public Screen {
 public:
     MainMenuScreen(Config & cfg, Window & win);
 
-    void draw() override;
     request::UIRequest handleInput(int key) override;
     void resize() override;
 private:
@@ -48,7 +47,6 @@ class SmallTermScreen final: public Screen {
 public:
     SmallTermScreen(Config & cfg, Window & win);
 
-    void draw() override;
     request::UIRequest handleInput(int key) override;
     void resize() override;
 private:
@@ -59,7 +57,6 @@ class ConnectToServerScreen final : public Screen {
 public:
     ConnectToServerScreen(Config & cfg, Window & win);
 
-    void draw() override;
     request::UIRequest handleInput(int key) override;
     void resize() override;
 private:
@@ -70,7 +67,89 @@ class GameScreen final : public Screen {
 public:
     GameScreen(Config & cfg, Window & win);
 
-    void draw() override;
+    request::UIRequest handleInput(int key) override;
+    void resize() override;
+private:
+    int indexOfSelectedCountry = -1; // -1 == world
+    bool navigatingCountries_ = true;
+    VariableInfo * selectedCountryInfo_ = nullptr;
+
+    void layout();
+    void focusCountry(std::size_t countryIndex);
+    void focusNextCountry();
+    void focusPrevCountry();
+    void focusActionButton(std::size_t buttonIndex);
+    void focusNextActionButton();
+    void focusPrevActionButton();
+    void toggleNavigationMode();
+    bool focusedOnCountry() const;
+    void updateSelectedCountryInfo();
+};
+
+class InfoScreen final : public Screen {
+public:
+    InfoScreen(Config & cfg, Window & win);
+
+    request::UIRequest handleInput(int key) override;
+    void resize() override;
+private:
+    void layout();
+};
+
+class TransmissionScreen final : public Screen {
+public:
+    TransmissionScreen(Config & cfg, Window & win);
+
+    request::UIRequest handleInput(int key) override;
+    void resize() override;
+private:
+    void layout();
+};
+
+class ClinicScreen final : public Screen {
+public:
+    ClinicScreen(Config & cfg, Window & win);
+
+    request::UIRequest handleInput(int key) override;
+    void resize() override;
+private:
+    void layout();
+};
+
+class AbilitiesScreen final : public Screen {
+public:
+    AbilitiesScreen(Config & cfg, Window & win);
+
+    request::UIRequest handleInput(int key) override;
+    void resize() override;
+private:
+    void layout();
+};
+
+class WorldScreen final : public Screen {
+public:
+    WorldScreen(Config & cfg, Window & win);
+
+    request::UIRequest handleInput(int key) override;
+    void resize() override;
+private:
+    void layout();
+};
+
+class CureScreen final : public Screen {
+public:
+    CureScreen(Config & cfg, Window & win);
+
+    request::UIRequest handleInput(int key) override;
+    void resize() override;
+private:
+    void layout();
+};
+
+class NewsScreen final : public Screen {
+public:
+    NewsScreen(Config & cfg, Window & win);
+
     request::UIRequest handleInput(int key) override;
     void resize() override;
 private:

@@ -1,4 +1,5 @@
 #include "UIManager.hpp"
+#include "GameTypes.hpp"
 #include "ScreenManager.hpp"
 #include "Settings.hpp"
 #include "UIRequest.hpp"
@@ -35,6 +36,56 @@ void updateTerminalConfig(Config & cfg, int terminalHeight, int terminalWidth) {
     cfg.resolution = chooseResolution(terminalHeight, terminalWidth);
 }
 
+/*void selectGameScreen(ScreenManager & manager, ScreenIds id) {
+    switch (id) {
+        case ScreenIds::Info:         manager.curScreen = &manager.info_; break;
+        case ScreenIds::Transmission: manager.curScreen = &manager.trans_; break;
+        case ScreenIds::Clinic:       manager.curScreen = &manager.clinic_; break;
+        case ScreenIds::Abilities:    manager.curScreen = &manager.abilities_; break;
+        case ScreenIds::World:        manager.curScreen = &manager.world_; break;
+        case ScreenIds::Cure:         manager.curScreen = &manager.cure_; break;
+        case ScreenIds::News:         manager.curScreen = &manager.news_; break;
+        case ScreenIds::Game:
+        default:                      manager.curScreen = &manager.game_; break;
+    }
+}*/
+
+bool applyGameRequest(Config & cfg, ScreenManager & manager, request::Game request) {
+    switch (request) {
+        case request::Game::Upgrade:
+            cfg.id = ScreenIds::Info;
+            break;
+        case request::Game::Info:
+            cfg.id = ScreenIds::Info;
+            break;
+        case request::Game::Transmission:
+            cfg.id = ScreenIds::Transmission;
+            break;
+        case request::Game::Clinic:
+            cfg.id = ScreenIds::Clinic;
+            break;
+        case request::Game::Abilities:
+            cfg.id = ScreenIds::Abilities;
+            break;
+        case request::Game::World:
+            cfg.id = ScreenIds::World;
+            break;
+        case request::Game::Cure:
+            cfg.id = ScreenIds::Cure;
+            break;
+        case request::Game::News:
+            cfg.id = ScreenIds::News;
+            break;
+        case request::Game::Back:
+            cfg.id = ScreenIds::Game;
+            break;
+    }
+
+    //selectGameScreen(manager, cfg.id);
+    manager.curScreen->resize();
+    return true;
+}
+
 }
 
 UIManager::UIManager() {
@@ -49,7 +100,14 @@ UIManager::UIManager() {
     cbreak();
     noecho();
     keypad(stdscr, TRUE);
+    timeout(0);
     curs_set(0);
+
+    if (has_colors()) {
+        start_color();
+        use_default_colors();
+        init_pair(1, COLOR_YELLOW, -1);
+    }
 
     int widthOfTerm, heightOfTerm;
     getmaxyx(stdscr, heightOfTerm, widthOfTerm);
@@ -60,12 +118,35 @@ UIManager::UIManager() {
 }
 
 UIManager::~UIManager() {
+    man_.reset();
+    timeout(-1);
+    keypad(stdscr, FALSE);
+    curs_set(1);
+    echo();
+    nocbreak();
     endwin();
 }
 
 request::UIRequest UIManager::loop(GameSnapshot snap) {
     snap_ = snap;
-    man_->curScreen->draw();
+
+    switch (snap_.situation) {
+        case plague::GameSituation::MainMenu:        man_->curScreen = &man_->mainMenu_; break;
+        case plague::GameSituation::ConnectToServer: man_->curScreen = &man_->connect_; break;
+        case plague::GameSituation::ConnectingToServer: man_->curScreen = &man_->connect_; break;
+        case plague::GameSituation::Game:
+            if (cfg_.id == ScreenIds::MainMenu || cfg_.id == ScreenIds::Connect || cfg_.id == ScreenIds::Settings) {
+                cfg_.id = ScreenIds::Game;
+            }
+            //selectGameScreen(*man_, cfg_.id);
+            break;
+        default: break;
+    }
+
+#ifdef DEBUGGAME
+    man_->curScreen = &man_->game_;
+#endif
+    
     int key = man_->curScreen->getKey();
 
     if (key == KEY_RESIZE) {
@@ -73,13 +154,26 @@ request::UIRequest UIManager::loop(GameSnapshot snap) {
         return request::None{};
     }
 
-    return man_->curScreen->handleInput(key);
+    if (key == ERR) {
+        man_->curScreen->draw();
+        return request::None{};
+    }
+
+    request::UIRequest request = man_->curScreen->handleInput(key);
+    if (snap_.situation == plague::GameSituation::Game && std::holds_alternative<request::Game>(request)) {
+        applyGameRequest(cfg_, *man_, std::get<request::Game>(request));
+        request = request::None{};
+    }
+
+    man_->curScreen->draw();
+    return request;
 }
 
 void UIManager::resize() {
+    endwin();
     refresh();
-    clear();
-    refresh();
+    erase();
+    clearok(stdscr, TRUE);
 
     int heightOfTerm = 0;
     int widthOfTerm = 0;
@@ -87,6 +181,16 @@ void UIManager::resize() {
 
     updateTerminalConfig(cfg_, heightOfTerm, widthOfTerm);
     man_->resize();
+
+    switch (snap_.situation) {
+        case plague::GameSituation::MainMenu:        man_->curScreen = &man_->mainMenu_; break;
+        case plague::GameSituation::ConnectToServer: man_->curScreen = &man_->connect_; break;
+        case plague::GameSituation::ConnectingToServer: man_->curScreen = &man_->connect_; break;
+        case plague::GameSituation::Game:            man_->curScreen = &man_->game_; break;
+        default: break;
+    }
+
+    man_->curScreen->resize();
     man_->curScreen->draw();
 }
 

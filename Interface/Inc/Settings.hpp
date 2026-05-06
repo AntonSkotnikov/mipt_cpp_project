@@ -24,7 +24,15 @@ enum class ScreenIds {
     SmallTerm,
     MainMenu,
     Connect,
-    Settings
+    Settings,
+    Game,
+    Info,
+    Transmission,
+    Clinic,
+    Abilities,
+    World,
+    Cure,
+    News
 };
 
 struct Config {

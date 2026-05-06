@@ -6,6 +6,7 @@
 #include <cctype>
 #include <cstddef>
 #include <functional>
+#include <iterator>
 #include <memory>
 #include <ncurses.h>
 #include <string>
@@ -13,6 +14,8 @@
 namespace plague::ui {
 
 namespace {
+
+constexpr short selectedCountryColorPair = 1;
 
 std::string repeatText(std::string_view text, int count) {
     std::string result;
@@ -35,13 +38,21 @@ void Button::draw() {
     view = clipped(view, rect_.width);
 
     if (focused_) {
-        win_.attrOn(A_REVERSE);
+        if (has_colors()) {
+            win_.attrOn(COLOR_PAIR(selectedCountryColorPair) | A_BOLD);
+        } else {
+            win_.attrOn(A_REVERSE);
+        }
     }
 
     win_.print(rect_.y, rect_.x, view + repeat(' ', rect_.width - static_cast<int>(view.size())));
 
     if (focused_) {
-        win_.attrOff(A_REVERSE);
+        if (has_colors()) {
+            win_.attrOff(COLOR_PAIR(selectedCountryColorPair) | A_BOLD);
+        } else {
+            win_.attrOff(A_REVERSE);
+        }
     }
 }
 
@@ -60,7 +71,7 @@ InputResult Button::handleInput(int key) {
 VariableInfo::VariableInfo(Window & win, std::string text) : Widget(win), line_(std::move(text)) {}
 
 void VariableInfo::draw() {
-    if (rect_.height <= 1 || rect_.width <= 0) {
+    if (rect_.height <= 0 || rect_.width <= 0) {
         return;
     }
     win_.print(rect_.y, rect_.x, clipped(line_, rect_.width));
@@ -324,13 +335,38 @@ std::string TextInput::getText() {
 DetalizedImage::DetalizedImage(Window & win) : Widget(win) {}
 
 void DetalizedImage::draw() {
-    for (SymbolOnScreen symbol : symbols) {
+    if (rect_.height <= 0 || rect_.width <= 0) {
+        return;
+    }
+
+    const bool drawSelected = focused_ && has_colors();
+    if (drawSelected) {
+        win_.attrOn(COLOR_PAIR(selectedCountryColorPair) | A_BOLD);
+    }
+
+    for (const SymbolOnScreen & symbol : symbols) {
+        if (symbol.y < 0 || symbol.x < 0 || symbol.y >= rect_.height || symbol.x >= rect_.width) {
+            continue;
+        }
+
         win_.print(rect_.y + symbol.y, rect_.x + symbol.x, symbol.symbol);
+    }
+
+    if (drawSelected) {
+        win_.attrOff(COLOR_PAIR(selectedCountryColorPair) | A_BOLD);
     }
 }
 
 void DetalizedImage::addSymbol(SymbolOnScreen newSymbol) {
-    symbols.push_back(newSymbol);
+    symbols.push_back(std::move(newSymbol));
+}
+
+void DetalizedImage::addSymbols(std::vector<SymbolOnScreen> newSymbols) {
+    symbols.insert(
+        symbols.end(),
+        std::make_move_iterator(newSymbols.begin()),
+        std::make_move_iterator(newSymbols.end())
+    );
 }
 
 // Decorators
@@ -547,6 +583,117 @@ std::size_t Menu::selectableCount() const {
 }
 
 void Menu::select(std::size_t index) {
+    const std::size_t count = selectableCount();
+    if (count == 0) {
+        selectedIndex_ = 0;
+        for (auto & button : buttons_) {
+            button->setFocus(false);
+        }
+        return;
+    }
+
+    selectedIndex_ = std::min(index, count - 1);
+
+    for (std::size_t i = 0; i < buttons_.size(); i++) {
+        buttons_[i]->setFocus(focused_ && i == selectedIndex_);
+    }
+}
+
+TabBar::TabBar(Window & win) : Widget(win) {}
+
+void TabBar::addButton(std::string text, std::function<request::UIRequest()> cb) {
+    buttons_.push_back(std::make_unique<Button>(win_, std::move(text), std::move(cb)));
+    layoutButtons();
+    select(selectedIndex_);
+}
+
+void TabBar::setRect(Rect rect) {
+    Widget::setRect(rect);
+    layoutButtons();
+}
+
+void TabBar::setFocus(bool value) {
+    Widget::setFocus(value);
+    select(selectedIndex_);
+}
+
+void TabBar::draw() {
+    const std::size_t count = selectableCount();
+
+    for (std::size_t i = 0; i < count; i++) {
+        buttons_[i]->draw();
+    }
+}
+
+InputResult TabBar::handleInput(int key) {
+    const std::size_t count = selectableCount();
+    if (count == 0) {
+        return {};
+    }
+
+    switch (key) {
+        case KEY_LEFT:
+        case KEY_UP:
+            select(selectedIndex_ == 0 ? count - 1 : selectedIndex_ - 1);
+            return {true, request::None{}};
+
+        case KEY_RIGHT:
+        case KEY_DOWN:
+        case '\t':
+            select((selectedIndex_ + 1) % count);
+            return {true, request::None{}};
+
+        case KEY_ENTER:
+        case '\n':
+        case '\r':
+            return buttons_[selectedIndex_]->handleInput(key);
+    }
+
+    return {};
+}
+
+void TabBar::layoutButtons() {
+    if (buttons_.empty()) {
+        selectedIndex_ = 0;
+        return;
+    }
+
+    const std::size_t count = selectableCount();
+    if (count == 0) {
+        for (auto & button : buttons_) {
+            button->setFocus(false);
+        }
+        selectedIndex_ = 0;
+        return;
+    }
+
+    const int gap = count > 1 && rect_.width >= static_cast<int>(count * 8) ? 1 : 0;
+    const int availableWidth = std::max(1, rect_.width - gap * static_cast<int>(count - 1));
+    const int baseWidth = std::max(1, availableWidth / static_cast<int>(count));
+    const int buttonY = rect_.y + std::max(0, rect_.height / 2);
+    int x = rect_.x;
+
+    for (std::size_t i = 0; i < count; i++) {
+        const bool last = i == count - 1;
+        const int remainingWidth = rect_.x + rect_.width - x;
+        const int width = last ? std::max(1, remainingWidth) : std::min(baseWidth, std::max(1, remainingWidth));
+        buttons_[i]->setRect({buttonY, x, 1, width});
+        x += width + gap;
+    }
+
+    selectedIndex_ = std::min(selectedIndex_, count - 1);
+    select(selectedIndex_);
+}
+
+std::size_t TabBar::selectableCount() const {
+    if (rect_.height <= 0 || rect_.width <= 0) {
+        return 0;
+    }
+
+    return buttons_.size();
+}
+
+void TabBar::select(std::size_t index) {
     const std::size_t count = selectableCount();
     if (count == 0) {
         selectedIndex_ = 0;

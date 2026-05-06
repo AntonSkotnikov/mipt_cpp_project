@@ -22,6 +22,18 @@ enum class Connect {
     Connect
 };
 
+enum class Game {
+    Upgrade,
+    Info,
+    Transmission,
+    Clinic,
+    Abilities,
+    World,
+    Cure,
+    News,
+    Back
+};
+
 struct ConnectInfo {
     Connect id;
     std::string addr;
@@ -32,7 +44,8 @@ using UIRequest = std::variant<
     None,
     MainMenu,
     Settings,
-    ConnectInfo
+    ConnectInfo,
+    Game
 >;
 
 }  // namespace plague::request

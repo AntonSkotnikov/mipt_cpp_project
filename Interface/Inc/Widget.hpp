@@ -122,7 +122,7 @@ public:
 
 struct SymbolOnScreen {
     int y, x;
-    std::string_view symbol;
+    std::string symbol;
 };
 
 class DetalizedImage final : public Widget {
@@ -130,7 +130,9 @@ class DetalizedImage final : public Widget {
 public:
     DetalizedImage(Window & win);
     void draw() override;
+    bool focusable() const override { return true; }
     void addSymbol(SymbolOnScreen newSymbol);
+    void addSymbols(std::vector<SymbolOnScreen> newSymbols);
 };
 
 //Decorators
@@ -183,6 +185,25 @@ private:
     void select(std::size_t index);
 public:
     explicit Menu(Window & win);
+
+    void addButton(std::string text, std::function<request::UIRequest()> cb);
+    void setRect(Rect rect) override;
+    void setFocus(bool value) override;
+    void draw() override;
+    InputResult handleInput(int key) override;
+    bool focusable() const override { return !buttons_.empty(); }
+};
+
+class TabBar final : public Widget {
+private:
+    std::vector<std::unique_ptr<Button>> buttons_;
+    std::size_t selectedIndex_ = 0;
+
+    void layoutButtons();
+    std::size_t selectableCount() const;
+    void select(std::size_t index);
+public:
+    explicit TabBar(Window & win);
 
     void addButton(std::string text, std::function<request::UIRequest()> cb);
     void setRect(Rect rect) override;

@@ -14,6 +14,7 @@ Window::Window(int height, int width, int posY, int posX) : width_(width), heigh
         throw NcursesError("Window creation error");
     }
     keypad(win_, TRUE);
+    wtimeout(win_, 0);
     wrefresh(win_);
 }
 
@@ -32,12 +33,12 @@ Window::Window(int height, int width) : width_(width), height_(height) {
         throw NcursesError("Window creation error");
     }
     keypad(win_, TRUE);
+    wtimeout(win_, 0);
     wrefresh(win_);
 }
 
 Window::~Window() {
     delwin(win_);
-    ::refresh();
 }
 
 void Window::makeBorders() {
@@ -105,7 +106,15 @@ void Window::printCentered(int y, std::string_view text) {
 }
 
 void Window::clear() {
+    ::werase(win_);
+    if (bordered_) {
+        makeBorders();
+    }
+}
+
+void Window::hardClear() {
     ::wclear(win_);
+    ::clearok(win_, TRUE);
     if (bordered_) {
         makeBorders();
     }
@@ -140,6 +149,7 @@ void Window::resize(int height, int width) {
     }
     width_ = width;
     height_ = height;
+    hardClear();
 }
 
 void Window::resizeCentered(int height, int width) {
@@ -164,6 +174,7 @@ void Window::move(int posY, int posX) {
     }
     posY_ = posY;
     posX_ = posX;
+    hardClear();
 }
 
 }

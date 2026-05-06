@@ -1,3 +1,11 @@
+DEBUGGAME = 0
+
+ifeq ($(DEBUGGAME), 1)
+	DEFINES = -D DEBUGGAME
+else
+	DEFINES = 
+endif
+
 CXX = g++
 CXXFLAGS = -std=c++20 -Wall -Wextra -Wpedantic -g
 CPPFLAGS = -ICommon/Inc -IClient/Inc -IInterface/Inc -IServer/Inc
@@ -18,7 +26,7 @@ all: $(CLIENT_TARGET) $(SERVER_TARGET)
 
 $(CLIENT_TARGET): $(COMMON_SRC) $(CLIENT_SRC) $(INTERFACE_SRC)
 	mkdir -p $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $^ -o $@ -lncurses
+	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(DEFINES) $^ -o $@ -lncurses
 
 $(SERVER_TARGET): $(COMMON_SRC) $(SERVER_SRC)
 	mkdir -p $(BUILD_DIR)

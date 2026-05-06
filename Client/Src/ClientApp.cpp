@@ -1,5 +1,8 @@
 #include "ClientApp.hpp"
 
+#include <chrono>
+#include <thread>
+
 namespace plague {
 
 namespace {
@@ -13,11 +16,22 @@ ClientApp::ClientApp(IUserInterface& ui, ITransport& transport)
     : ui_(ui), transport_(transport), request_handler_(std::make_unique<RequestHandler>(transport)) {}
 
 void ClientApp::run() {
+    using clock = std::chrono::steady_clock;
+    constexpr auto frameTime = std::chrono::microseconds(16667);
+    auto nextFrame = clock::now();
+
     while (running_) {
+        nextFrame += frameTime;
+
         ui_.render(snapshot_);
         const request::UIRequest request = ui_.pollRequest(snapshot_);
         handleRequest(request);
         request_handler_->update();
+
+        std::this_thread::sleep_until(nextFrame);
+        if (clock::now() > nextFrame + frameTime) {
+            nextFrame = clock::now();
+        }
     }
 }
 

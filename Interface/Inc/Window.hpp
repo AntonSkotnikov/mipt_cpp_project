@@ -41,6 +41,7 @@ public:
     void print(int y, int x, std::string_view text);
     void printCentered(int y, std::string_view text);
     void clear();
+    void hardClear();
     int getKey();
     void attrOn(attr_t at);
     void attrOff(attr_t at);

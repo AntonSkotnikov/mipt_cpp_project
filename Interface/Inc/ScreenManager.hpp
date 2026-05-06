@@ -10,14 +10,21 @@ class ScreenManager final {
 private:
     Config & cfg_;
     Window mainWin_; // for border if needed
-
+public:
     SmallTermScreen smallTerm_;
     MainMenuScreen mainMenu_;
     ConnectToServerScreen connect_;
-    //Screen settings_;
-    //Screen choosingSide;
-    //Screen game_;
-public:
+
+    GameScreen game_;
+    ////InfoScreen info_;
+    //TransmissionScreen trans_; // carantine for humanity
+    //ClinicScreen clinic_;
+    //AbilitiesScreen abilities_; // operation for humanity
+//
+    //WorldScreen world_;
+    //CureScreen cure_;
+    //NewsScreen news_;
+
     Screen * curScreen = &mainMenu_;
     ScreenManager(Config & cfg);
     void resize();
