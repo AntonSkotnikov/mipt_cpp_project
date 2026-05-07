@@ -4,7 +4,7 @@
 
 namespace plague {
 
-RequestHandler::RequestHandler(ITransport& transport)
+RequestHandler::RequestHandler(SocketTransport& transport)
     : transport_(transport) {}
 
 RequestId RequestHandler::generateRequestId() {

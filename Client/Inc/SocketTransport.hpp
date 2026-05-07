@@ -1,21 +1,22 @@
 #pragma once
 
-#include "ITransport.hpp"
+#include "ClientPackage.hpp"
+#include "Client_ServerAPI.hpp"
 
 #include <queue>
 #include <string>
 
 namespace plague {
 
-class SocketTransport final : public ITransport {
+class SocketTransport final {
 public:
-    ~SocketTransport() override;
+    ~SocketTransport();
 
-    bool connectToServer(const char* host, int port) override;
-    void disconnect() override;
-    bool isConnected() const override;
-    bool send(const ClientPackage& package) override;
-    bool pollResponse(ServerResponse& response) override;
+    bool connectToServer(const char* host, int port);
+    void disconnect();
+    bool isConnected() const;
+    bool send(const ClientPackage& package);
+    bool pollResponse(ServerResponse& response);
 
 private:
     bool sendAll(const std::string& wire_data);

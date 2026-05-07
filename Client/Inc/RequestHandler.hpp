@@ -2,7 +2,7 @@
 
 #include "Client_ServerAPI.hpp"
 #include "ClientPackage.hpp"
-#include "ITransport.hpp"
+#include "SocketTransport.hpp"
 
 #include <chrono>
 #include <functional>
@@ -23,7 +23,7 @@ struct RequestConfig {
 
 class RequestHandler {
 public:
-    RequestHandler(ITransport& transport);
+    RequestHandler(SocketTransport& transport);
     RequestId sendRequest(ClientCommand command,
                           std::string payload,
                           ResponseCallback on_response,
@@ -52,7 +52,7 @@ private:
     void processTimeout(const PendingRequest& req);
 
 private:
-    ITransport& transport_;
+    SocketTransport& transport_;
     RequestId next_request_id_{1};
     std::queue<ClientPackage> outbound_queue_;
     std::unordered_map<RequestId, PendingRequest> pending_requests_;

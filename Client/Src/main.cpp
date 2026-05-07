@@ -1,9 +1,9 @@
 #include "ClientApp.hpp"
-#include "InterfaceUiAdapter.hpp"
+#include "UIManager.hpp"
 #include "SocketTransport.hpp"
 
 int main() {
-    plague::InterfaceUiAdapter ui;
+    plague::ui::UIManager ui;
     plague::SocketTransport transport;
     plague::ClientApp app(ui, transport);
     app.run();
