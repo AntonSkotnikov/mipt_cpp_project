@@ -4,6 +4,7 @@
 #include "utilities.hpp"
 #include <algorithm>
 #include <cctype>
+#include <climits>
 #include <cstddef>
 #include <functional>
 #include <iterator>
@@ -16,6 +17,16 @@ namespace plague::ui {
 namespace {
 
 constexpr short selectedCountryColorPair = 1;
+
+bool isBackspaceKey(int key) {
+    return key == KEY_BACKSPACE || key == 127 || key == '\b';
+}
+
+bool isPrintableCharKey(int key) {
+    return key >= 0 &&
+           key <= UCHAR_MAX &&
+           std::isprint(static_cast<unsigned char>(key));
+}
 
 std::string repeatText(std::string_view text, int count) {
     std::string result;
@@ -294,33 +305,37 @@ void Dialog::select(std::size_t index) {
 TextInput::TextInput(Window & win) : Widget(win) {}
 
 void TextInput::draw() {
-    win_.print(rect_.y, rect_.x, text_);
+    const std::string view = clipped(text_, rect_.width);
+    win_.print(rect_.y, rect_.x, view + repeat(' ', rect_.width - static_cast<int>(view.size())));
 }
 
 InputResult TextInput::handleInput(int key) {
+    if (isBackspaceKey(key)) {
+        if (cursor_ > 0) {
+            text_.erase(cursor_ - 1, 1);
+            cursor_--;
+        }
+        return {true, request::None{}};
+    }
+
     switch (key) {
-        case KEY_BACKSPACE:
-            if (cursor_ > 0) {
-                text_.erase(cursor_ - 1, 1);
-                cursor_--;
-            }
-            break;
         case KEY_LEFT:
             if (cursor_ > 0) {
                 cursor_--;
             }
-            break;
+            return {true, request::None{}};
 
         case KEY_RIGHT:
             if (cursor_ < text_.size()) {
                 cursor_++;
             }
-            break;
+            return {true, request::None{}};
 
         default:
-            if (std::isprint(key)) {
+            if (isPrintableCharKey(key)) {
                 text_.insert(cursor_, 1, static_cast<char>(key));
                 cursor_++;
+                return {true, request::None{}};
             }
             break;
     }
