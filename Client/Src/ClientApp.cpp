@@ -12,7 +12,7 @@ constexpr int kServerPort = 5555;
 
 }
 
-ClientApp::ClientApp(IUserInterface& ui, ITransport& transport)
+ClientApp::ClientApp(ui::UIManager& ui, SocketTransport& transport)
     : ui_(ui), transport_(transport), request_handler_(std::make_unique<RequestHandler>(transport)) {}
 
 void ClientApp::run() {
@@ -23,8 +23,7 @@ void ClientApp::run() {
     while (running_) {
         nextFrame += frameTime;
 
-        ui_.render(snapshot_);
-        const request::UIRequest request = ui_.pollRequest(snapshot_);
+        const request::UIRequest request = ui_.loop(snapshot_);
         handleRequest(request);
         request_handler_->update();
 
@@ -51,7 +50,6 @@ void ClientApp::handleRequest(const request::UIRequest& request) {
         if (std::holds_alternative<request::MainMenu>(request) &&
             std::get<request::MainMenu>(request) == request::MainMenu::ConnectToServer) {
             setSituation(GameSituation::ConnectingToServer);
-            ui_.showMessage("");
         } else if (std::holds_alternative<request::MainMenu>(request) &&
                    std::get<request::MainMenu>(request) == request::MainMenu::OpenSettings) {
             setSituation(GameSituation::Settings);
@@ -87,30 +85,25 @@ void ClientApp::handleRequest(const request::UIRequest& request) {
             }
 
             if (!transport_.isConnected() && !transport_.connectToServer(host.c_str(), port)) {
-                ui_.showMessage("Connection failed.");
                 resetSnapshotForMenu();
                 setSituation(GameSituation::MainMenu);
                 break;
             }
 
-            ui_.showMessage("Connecting to server...");
             request_handler_->sendRequest(
                 ClientCommand::Connect,
                 "",
                 [this](const ServerResponse& response) {
                     if (response.success) {
-                        ui_.showMessage("Connected to server.");
                         snapshot_.recentNews.clear();
                         setSituation(GameSituation::ChoosingSide);
                     } else {
-                        ui_.showMessage(response.error_message.empty() ? "Connection failed." : response.error_message.c_str());
                         transport_.disconnect();
                         resetSnapshotForMenu();
                         setSituation(GameSituation::MainMenu);
                     }
                 },
                 [this](RequestId) {
-                    ui_.showMessage("Connection timeout.");
                     transport_.disconnect();
                     resetSnapshotForMenu();
                     setSituation(GameSituation::MainMenu);
@@ -118,7 +111,6 @@ void ClientApp::handleRequest(const request::UIRequest& request) {
         } else if (std::holds_alternative<request::ConnectInfo>(request) &&
                    std::get<request::ConnectInfo>(request).id == request::Connect::Back) {
             setSituation(GameSituation::MainMenu);
-            ui_.showMessage("");
         }
         break;
 
@@ -135,56 +127,47 @@ void ClientApp::handleRequest(const request::UIRequest& request) {
         if (std::holds_alternative<request::MainMenu>(request)) {
             auto action = std::get<request::MainMenu>(request);
             if (action == request::MainMenu::ConnectToServer) {
-                ui_.showMessage("Sending humanity choice...");
                 request_handler_->sendRequest(
                     ClientCommand::ChooseHumanity,
                     "",
                     [this](const ServerResponse& response) {
                         if (response.success) {
-                            ui_.showMessage("Humanity selected.");
                             snapshot_.playerInfo.role = PlayerRole::Humanity;
                             snapshot_.playerInfo.points = 100;
                             snapshot_.day = 1;
                             snapshot_.recentNews.emplace_back(ImportanceOfNews::RegularNews, "Humanity side selected.");
                             setSituation(GameSituation::Game);
                         } else {
-                            ui_.showMessage(response.error_message.empty() ? "Failed to notify server." : response.error_message.c_str());
                             resetSnapshotForMenu();
                             setSituation(GameSituation::MainMenu);
                         }
                     },
                     [this](RequestId) {
-                        ui_.showMessage("Server timeout. Try again.");
                         resetSnapshotForMenu();
                         setSituation(GameSituation::MainMenu);
                     });
             } else if (action == request::MainMenu::OpenSettings) {
-                ui_.showMessage("Sending pathogen choice...");
                 request_handler_->sendRequest(
                     ClientCommand::ChoosePathogen,
                     "",
                     [this](const ServerResponse& response) {
                         if (response.success) {
-                            ui_.showMessage("Pathogen selected.");
                             snapshot_.playerInfo.role = PlayerRole::Pathogen;
                             snapshot_.playerInfo.points = 100;
                             snapshot_.day = 1;
                             snapshot_.recentNews.emplace_back(ImportanceOfNews::RegularNews, "Pathogen side selected.");
                             setSituation(GameSituation::Game);
                         } else {
-                            ui_.showMessage(response.error_message.empty() ? "Failed to notify server." : response.error_message.c_str());
                             resetSnapshotForMenu();
                             setSituation(GameSituation::MainMenu);
                         }
                     },
                     [this](RequestId) {
-                        ui_.showMessage("Server timeout. Try again.");
                         resetSnapshotForMenu();
                         setSituation(GameSituation::MainMenu);
                     });
             } else if (action == request::MainMenu::Exit) {
                 transport_.disconnect();
-                ui_.showMessage("Disconnected.");
                 resetSnapshotForMenu();
                 setSituation(GameSituation::MainMenu);
             }

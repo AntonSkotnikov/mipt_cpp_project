@@ -1,7 +1,7 @@
 #pragma once
 
-#include "ITransport.hpp"
-#include "IUserInterface.hpp"
+#include "SocketTransport.hpp"
+#include "UIManager.hpp"
 #include "RequestHandler.hpp"
 #include "UI_ClientAPI.hpp"
 
@@ -11,7 +11,7 @@ namespace plague {
 
 class ClientApp {
 public:
-    ClientApp(IUserInterface& ui, ITransport& transport);
+    ClientApp(ui::UIManager& ui, SocketTransport& transport);
     void run();
 
 private:
@@ -20,8 +20,8 @@ private:
     void resetSnapshotForMenu();
 
 private:
-    IUserInterface& ui_;
-    ITransport& transport_;
+    ui::UIManager& ui_;
+    SocketTransport& transport_;
     std::unique_ptr<RequestHandler> request_handler_;
     GameSnapshot snapshot_{
         GameSituation::MainMenu,
