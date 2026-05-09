@@ -86,6 +86,12 @@ bool applyGameRequest(Config & cfg, ScreenManager & manager, request::Game reque
     return true;
 }
 
+void enforceSmallTerminalScreen(const Config & cfg, ScreenManager & manager) {
+    if (cfg.terminalTooSmall) {
+        manager.curScreen = &manager.smallTerm_;
+    }
+}
+
 }
 
 UIManager::UIManager() {
@@ -146,6 +152,8 @@ request::UIRequest UIManager::loop(GameSnapshot snap) {
 #ifdef DEBUGGAME
     man_->curScreen = &man_->game_;
 #endif
+
+    enforceSmallTerminalScreen(cfg_, *man_);
     
     int key = man_->curScreen->getKey();
 
@@ -172,8 +180,9 @@ request::UIRequest UIManager::loop(GameSnapshot snap) {
 void UIManager::resize() {
     endwin();
     refresh();
-    erase();
     clearok(stdscr, TRUE);
+    erase();
+    refresh();
 
     int heightOfTerm = 0;
     int widthOfTerm = 0;
@@ -189,6 +198,8 @@ void UIManager::resize() {
         case plague::GameSituation::Game:            man_->curScreen = &man_->game_; break;
         default: break;
     }
+
+    enforceSmallTerminalScreen(cfg_, *man_);
 
     man_->curScreen->resize();
     man_->curScreen->draw();

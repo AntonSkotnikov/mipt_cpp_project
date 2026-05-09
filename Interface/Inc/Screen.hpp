@@ -72,9 +72,13 @@ public:
 private:
     int indexOfSelectedCountry = -1; // -1 == world
     bool navigatingCountries_ = true;
+    bool countryMapsLoaded_ = false;
+    Resolutions loadedMapResolution_ = Resolutions::Low;
     VariableInfo * selectedCountryInfo_ = nullptr;
+    std::vector<DetalizedImage *> countryImages_;
 
     void layout();
+    void loadCountryMaps();
     void focusCountry(std::size_t countryIndex);
     void focusNextCountry();
     void focusPrevCountry();

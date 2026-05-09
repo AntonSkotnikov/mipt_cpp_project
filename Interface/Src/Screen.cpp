@@ -359,11 +359,13 @@ request::UIRequest ConnectToServerScreen::handleInput(int key) {
 GameScreen::GameScreen(Config & cfg, Window & win) : Screen(cfg, win) {
     widgets.push_back(std::make_unique<FrameDecorator>(win_, std::make_unique<Info>(win_, "")));
 
-    for (const char * countryName : lowMapCountries) {
+    for (std::size_t i = 0; i < countryWidgetCount; i++) {
         auto countryImage = std::make_unique<DetalizedImage>(win_);
-        countryImage->addSymbols(parseLowMapCountry(countryName));
+        countryImages_.push_back(countryImage.get());
         widgets.push_back(std::make_unique<ColorDecorator>(win_, std::move(countryImage), COLOR_BLACK));
     }
+
+    loadCountryMaps();
 
     widgets.push_back(std::make_unique<FrameDecorator>(win_, std::make_unique<VariableInfo>(win_, "DNA: 0")));
     widgets.push_back(std::make_unique<FrameDecorator>(win_, std::make_unique<VariableInfo>(win_, "Ill: 0")));
@@ -438,7 +440,25 @@ void GameScreen::layout() {
 }
 
 void GameScreen::resize() {
+    if (!countryMapsLoaded_ || loadedMapResolution_ != cfg_.resolution) {
+        loadCountryMaps();
+    }
+
     layout();
+}
+
+void GameScreen::loadCountryMaps() {
+    if (countryImages_.size() != countryWidgetCount) {
+        return;
+    }
+
+    for (std::size_t i = 0; i < countryWidgetCount; i++) {
+        countryImages_[i]->clearSymbols();
+        countryImages_[i]->addSymbols(parseMapCountry(lowMapCountries[i], cfg_.resolution));
+    }
+
+    loadedMapResolution_ = cfg_.resolution;
+    countryMapsLoaded_ = true;
 }
 
 void GameScreen::focusCountry(std::size_t countryIndex) {

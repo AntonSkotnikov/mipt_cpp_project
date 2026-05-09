@@ -131,6 +131,7 @@ public:
     DetalizedImage(Window & win);
     void draw() override;
     bool focusable() const override { return true; }
+    void clearSymbols();
     void addSymbol(SymbolOnScreen newSymbol);
     void addSymbols(std::vector<SymbolOnScreen> newSymbols);
 };

@@ -376,6 +376,10 @@ void DetalizedImage::addSymbol(SymbolOnScreen newSymbol) {
     symbols.push_back(std::move(newSymbol));
 }
 
+void DetalizedImage::clearSymbols() {
+    symbols.clear();
+}
+
 void DetalizedImage::addSymbols(std::vector<SymbolOnScreen> newSymbols) {
     symbols.insert(
         symbols.end(),
