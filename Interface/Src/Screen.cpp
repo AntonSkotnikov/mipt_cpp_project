@@ -7,7 +7,9 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstdlib>
 #include <iterator>
+#include <limits>
 #include <memory>
 #include <ncurses.h>
 #include <variant>
@@ -79,6 +81,71 @@ Rect innerRect(Rect outer) {
         std::max(1, outer.height - 2),
         std::max(1, outer.width - 2)
     };
+}
+
+Rect countryBounds(const std::vector<SymbolOnScreen> & symbols) {
+    if (symbols.empty()) {
+        return {};
+    }
+
+    int minY = symbols.front().y;
+    int maxY = symbols.front().y;
+    int minX = symbols.front().x;
+    int maxX = symbols.front().x;
+
+    for (const SymbolOnScreen & symbol : symbols) {
+        minY = std::min(minY, symbol.y);
+        maxY = std::max(maxY, symbol.y);
+        minX = std::min(minX, symbol.x);
+        maxX = std::max(maxX, symbol.x);
+    }
+
+    return {
+        minY,
+        minX,
+        maxY - minY + 1,
+        maxX - minX + 1
+    };
+}
+
+bool validCountryBounds(Rect bounds) {
+    return bounds.height > 0 && bounds.width > 0;
+}
+
+int centerY(Rect bounds) {
+    return bounds.y + bounds.height / 2;
+}
+
+int centerX(Rect bounds) {
+    return bounds.x + bounds.width / 2;
+}
+
+bool isCountryInDirection(Rect current,
+                          Rect candidate,
+                          int key) {
+    switch (key) {
+        case KEY_LEFT:
+            return centerX(candidate) < centerX(current);
+        case KEY_RIGHT:
+            return centerX(candidate) > centerX(current);
+        case KEY_UP:
+            return centerY(candidate) < centerY(current);
+        case KEY_DOWN:
+            return centerY(candidate) > centerY(current);
+    }
+
+    return false;
+}
+
+int directionalScore(Rect current,
+                     Rect candidate,
+                     int key) {
+    const int dx = centerX(candidate) - centerX(current);
+    const int dy = centerY(candidate) - centerY(current);
+    const int primary = (key == KEY_LEFT || key == KEY_RIGHT) ? std::abs(dx) : std::abs(dy);
+    const int secondary = (key == KEY_LEFT || key == KEY_RIGHT) ? std::abs(dy) : std::abs(dx);
+
+    return primary * primary + secondary * secondary * 4;
 }
 /*
 PanelLayout gamePanelLayout(Window & win) {
@@ -452,9 +519,14 @@ void GameScreen::loadCountryMaps() {
         return;
     }
 
+    countryBounds_.assign(countryWidgetCount, {});
+
     for (std::size_t i = 0; i < countryWidgetCount; i++) {
+        std::vector<SymbolOnScreen> symbols = parseMapCountry(lowMapCountries[i], cfg_.resolution);
+        countryBounds_[i] = countryBounds(symbols);
+
         countryImages_[i]->clearSymbols();
-        countryImages_[i]->addSymbols(parseMapCountry(lowMapCountries[i], cfg_.resolution));
+        countryImages_[i]->addSymbols(std::move(symbols));
     }
 
     loadedMapResolution_ = cfg_.resolution;
@@ -483,6 +555,44 @@ void GameScreen::focusPrevCountry() {
         ? 0
         : static_cast<std::size_t>(indexOfSelectedCountry);
     focusCountry((current + countryWidgetCount - 1) % countryWidgetCount);
+}
+
+void GameScreen::focusNearestCountry(int key) {
+    if (indexOfSelectedCountry < 0 ||
+        static_cast<std::size_t>(indexOfSelectedCountry) >= countryBounds_.size()) {
+        focusCountry(0);
+        return;
+    }
+
+    const std::size_t currentIndex = static_cast<std::size_t>(indexOfSelectedCountry);
+    const Rect current = countryBounds_[currentIndex];
+    if (!validCountryBounds(current)) {
+        return;
+    }
+
+    std::size_t bestIndex = currentIndex;
+    int bestScore = std::numeric_limits<int>::max();
+
+    for (std::size_t i = 0; i < countryBounds_.size(); i++) {
+        if (i == currentIndex || !validCountryBounds(countryBounds_[i])) {
+            continue;
+        }
+
+        const Rect candidate = countryBounds_[i];
+        if (!isCountryInDirection(current, candidate, key)) {
+            continue;
+        }
+
+        const int score = directionalScore(current, candidate, key);
+        if (score < bestScore) {
+            bestScore = score;
+            bestIndex = i;
+        }
+    }
+
+    if (bestIndex != currentIndex) {
+        focusCountry(bestIndex);
+    }
 }
 
 void GameScreen::focusActionButton(std::size_t buttonIndex) {
@@ -558,7 +668,7 @@ request::UIRequest GameScreen::handleInput(int key) {
         case KEY_LEFT:
         case KEY_UP:
             if (navigatingCountries_) {
-                focusPrevCountry();
+                focusNearestCountry(key);
             } else {
                 focusPrevActionButton();
             }
@@ -567,7 +677,7 @@ request::UIRequest GameScreen::handleInput(int key) {
         case KEY_RIGHT:
         case KEY_DOWN:
             if (navigatingCountries_) {
-                focusNextCountry();
+                focusNearestCountry(key);
             } else {
                 focusNextActionButton();
             }

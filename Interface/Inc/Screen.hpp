@@ -76,10 +76,12 @@ private:
     Resolutions loadedMapResolution_ = Resolutions::Low;
     VariableInfo * selectedCountryInfo_ = nullptr;
     std::vector<DetalizedImage *> countryImages_;
+    std::vector<Rect> countryBounds_;
 
     void layout();
     void loadCountryMaps();
     void focusCountry(std::size_t countryIndex);
+    void focusNearestCountry(int key);
     void focusNextCountry();
     void focusPrevCountry();
     void focusActionButton(std::size_t buttonIndex);
