@@ -14,6 +14,7 @@ public:
     SmallTermScreen smallTerm_;
     MainMenuScreen mainMenu_;
     ConnectToServerScreen connect_;
+    ChoosingSideScreen choosingSide_;
 
     GameScreen game_;
     ////InfoScreen info_;

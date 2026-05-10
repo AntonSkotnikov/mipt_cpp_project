@@ -2,6 +2,7 @@
 
 #include "Settings.hpp"
 #include "UIRequest.hpp"
+#include "UI_ClientAPI.hpp"
 #include "Window.hpp"
 #include "Widget.hpp"
 #include <cstddef>
@@ -61,6 +62,27 @@ public:
     void resize() override;
 private:
     void layout();
+};
+
+class ChoosingSideScreen final : public Screen {
+public:
+    ChoosingSideScreen(Config & cfg, Window & win);
+
+    request::UIRequest handleInput(int key) override;
+    void resize() override;
+    void updateSnapshot(const GameSnapshot & snapshot);
+private:
+    Menu * subtypeMenu_ = nullptr;
+    Info * description_ = nullptr;
+    VariableInfo * status_ = nullptr;
+    ColorDecorator * statusColor_ = nullptr;
+    GameSnapshot snapshot_{};
+
+    void layout();
+    void updateTexts();
+    void focusBottomButton(std::size_t index);
+    void focusNextBottomButton();
+    void focusPrevBottomButton();
 };
 
 class GameScreen final : public Screen {

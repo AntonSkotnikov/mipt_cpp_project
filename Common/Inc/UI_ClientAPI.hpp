@@ -15,6 +15,7 @@ struct GameSnapshot {
     InfoAboutPlayer playerInfo;
 
     std::vector<News> recentNews;
+    ChoosingSideState choosingSide{};
 };
 
 }

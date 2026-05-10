@@ -113,6 +113,8 @@ UIManager::UIManager() {
         start_color();
         use_default_colors();
         init_pair(1, COLOR_YELLOW, -1);
+        init_pair(2, COLOR_BLUE, -1);
+        init_pair(3, COLOR_GREEN, -1);
     }
 
     int widthOfTerm, heightOfTerm;
@@ -140,6 +142,10 @@ request::UIRequest UIManager::loop(GameSnapshot snap) {
         case plague::GameSituation::MainMenu:        man_->curScreen = &man_->mainMenu_; break;
         case plague::GameSituation::ConnectToServer: man_->curScreen = &man_->connect_; break;
         case plague::GameSituation::ConnectingToServer: man_->curScreen = &man_->connect_; break;
+        case plague::GameSituation::ChoosingSide:
+            man_->choosingSide_.updateSnapshot(snap_);
+            man_->curScreen = &man_->choosingSide_;
+            break;
         case plague::GameSituation::Game:
             if (cfg_.id == ScreenIds::MainMenu || cfg_.id == ScreenIds::Connect || cfg_.id == ScreenIds::Settings) {
                 cfg_.id = ScreenIds::Game;
@@ -195,6 +201,10 @@ void UIManager::resize() {
         case plague::GameSituation::MainMenu:        man_->curScreen = &man_->mainMenu_; break;
         case plague::GameSituation::ConnectToServer: man_->curScreen = &man_->connect_; break;
         case plague::GameSituation::ConnectingToServer: man_->curScreen = &man_->connect_; break;
+        case plague::GameSituation::ChoosingSide:
+            man_->choosingSide_.updateSnapshot(snap_);
+            man_->curScreen = &man_->choosingSide_;
+            break;
         case plague::GameSituation::Game:            man_->curScreen = &man_->game_; break;
         default: break;
     }

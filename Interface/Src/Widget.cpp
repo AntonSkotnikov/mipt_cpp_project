@@ -79,6 +79,10 @@ InputResult Button::handleInput(int key) {
     return {};
 }
 
+void Button::changeText(std::string newText) {
+    text_ = std::move(newText);
+}
+
 VariableInfo::VariableInfo(Window & win, std::string text) : Widget(win), line_(std::move(text)) {}
 
 void VariableInfo::draw() {
@@ -140,11 +144,15 @@ void Ticker::loadNextLine() {
 }
 
 Info::Info(Window & win, std::string text) : Widget(win) {
+    changeText(std::move(text));
+}
+
+void Info::changeText(std::string newText) {
     lines_.clear();
 
     std::string current;
 
-    for (char ch : text) {
+    for (char ch : newText) {
         if (ch == '\n') {
             lines_.push_back(std::move(current));
             current.clear();
@@ -524,6 +532,14 @@ void Menu::addButton(std::string text, std::function<request::UIRequest()> cb) {
     buttons_.push_back(std::make_unique<Button>(win_, std::move(text), std::move(cb)));
     layoutButtons();
     select(selectedIndex_);
+}
+
+void Menu::changeButtonText(std::size_t index, std::string text) {
+    if (index >= buttons_.size()) {
+        return;
+    }
+
+    buttons_[index]->changeText(std::move(text));
 }
 
 void Menu::setRect(Rect rect) {
