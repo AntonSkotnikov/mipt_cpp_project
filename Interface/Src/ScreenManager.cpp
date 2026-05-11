@@ -6,6 +6,31 @@
 
 namespace plague::ui {
 
+namespace {
+
+Screen * screenById(ScreenManager & manager, ScreenIds id) {
+    switch (id) {
+        case ScreenIds::SmallTerm: return &manager.smallTerm_;
+        case ScreenIds::MainMenu:  return &manager.mainMenu_;
+        case ScreenIds::Connect:   return &manager.connect_;
+        case ScreenIds::Settings:  return &manager.mainMenu_;
+        case ScreenIds::Game:      return &manager.game_;
+        case ScreenIds::Info:      return &manager.pathogen_;
+        case ScreenIds::Cure:      return &manager.cure_;
+        case ScreenIds::World:     return &manager.country_;
+        case ScreenIds::News:      return &manager.news_;
+
+        case ScreenIds::Transmission:
+        case ScreenIds::Clinic:
+        case ScreenIds::Abilities:
+            break;
+    }
+
+    return manager.curScreen;
+}
+
+}
+
 ScreenManager::ScreenManager(Config & cfg) : cfg_(cfg),
                                              mainWin_{terminalProfiles.at(cfg.resolution).height + deltaForBorders, terminalProfiles.at(cfg.resolution).width + deltaForBorders},
                                              smallTerm_{cfg, mainWin_},
@@ -13,17 +38,14 @@ ScreenManager::ScreenManager(Config & cfg) : cfg_(cfg),
                                              connect_(cfg, mainWin_),
                                              choosingSide_(cfg, mainWin_),
                                              game_{cfg, mainWin_},
-                                             //info_{cfg, mainWin_},
-                                             //trans_{cfg, mainWin_},
-                                             //clinic_{cfg, mainWin_},
-                                             //abilities_{cfg, mainWin_},
-                                             //world_{cfg, mainWin_},
-                                             //cure_{cfg, mainWin_},
-                                             //news_{cfg, mainWin_},
+                                             pathogen_{cfg, mainWin_},
+                                             cure_{cfg, mainWin_},
+                                             country_{cfg, mainWin_},
+                                             news_{cfg, mainWin_},
                                              curScreen(&mainMenu_) {
     selectCurrentScreen();
     applyWindowLayout();
-     curScreen->resize();
+    curScreen->resize();
 }
 
 void ScreenManager::resize() {
@@ -34,13 +56,10 @@ void ScreenManager::resize() {
     connect_.resize();
     choosingSide_.resize();
     game_.resize();
-    //info_.resize();
-    //trans_.resize();
-    //clinic_.resize();
-    //abilities_.resize();
-    //world_.resize();
-    //cure_.resize();
-    //news_.resize();
+    pathogen_.resize();
+    cure_.resize();
+    country_.resize();
+    news_.resize();
 }
 
 void ScreenManager::applyWindowLayout() {
@@ -70,44 +89,7 @@ void ScreenManager::selectCurrentScreen() {
         return;
     }
 
-    switch (cfg_.id) {
-        case ScreenIds::SmallTerm:
-            curScreen = &smallTerm_;
-            return;
-        case ScreenIds::MainMenu:
-            curScreen = &mainMenu_;
-            return;
-        case ScreenIds::Connect:
-            curScreen = &connect_;
-            return;
-        case ScreenIds::Settings:
-            curScreen = &mainMenu_;
-            return;
-        case ScreenIds::Game:
-            curScreen = &game_;
-            return;
-        case ScreenIds::Info:
-            //curScreen = &info_;
-            return;
-        case ScreenIds::Transmission:
-            //curScreen = &trans_;
-            return;
-        case ScreenIds::Clinic:
-            //curScreen = &clinic_;
-            return;
-        case ScreenIds::Abilities:
-            //curScreen = &abilities_;
-            return;
-        case ScreenIds::World:
-            //curScreen = &world_;
-            return;
-        case ScreenIds::Cure:
-            //curScreen = &cure_;
-            return;
-        case ScreenIds::News:
-            //curScreen = &news_;
-            return;
-    }
+    curScreen = screenById(*this, cfg_.id);
 }
 
 }
