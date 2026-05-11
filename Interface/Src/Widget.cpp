@@ -11,6 +11,7 @@
 #include <memory>
 #include <ncurses.h>
 #include <string>
+#include <vector>
 
 namespace plague::ui {
 
@@ -30,12 +31,30 @@ bool isPrintableCharKey(int key) {
 
 std::string repeatText(std::string_view text, int count) {
     std::string result;
+    result.reserve(text.size() * static_cast<std::size_t>(std::max(0, count)));
 
     for (int i = 0; i < count; i++) {
         result += text;
     }
 
     return result;
+}
+
+std::vector<std::string> splitLines(std::string text) {
+    std::vector<std::string> lines;
+    std::string current;
+
+    for (char ch : text) {
+        if (ch == '\n') {
+            lines.push_back(std::move(current));
+            current.clear();
+        } else {
+            current.push_back(ch);
+        }
+    }
+
+    lines.push_back(std::move(current));
+    return lines;
 }
 
 }
@@ -148,20 +167,7 @@ Info::Info(Window & win, std::string text) : Widget(win) {
 }
 
 void Info::changeText(std::string newText) {
-    lines_.clear();
-
-    std::string current;
-
-    for (char ch : newText) {
-        if (ch == '\n') {
-            lines_.push_back(std::move(current));
-            current.clear();
-        } else {
-            current.push_back(ch);
-        }
-    }
-
-    lines_.push_back(std::move(current));
+    lines_ = splitLines(std::move(newText));
 }
 
 void Info::draw() {
@@ -176,20 +182,7 @@ void Info::draw() {
     }
 }
 
-Dialog::Dialog(Window & win, std::string text) : Widget(win) {
-    std::string current;
-
-    for (char ch : text) {
-        if (ch == '\n') {
-            lines_.push_back(std::move(current));
-            current.clear();
-        } else {
-            current.push_back(ch);
-        }
-    }
-
-    lines_.push_back(std::move(current));
-}
+Dialog::Dialog(Window & win, std::string text) : Widget(win), lines_(splitLines(std::move(text))) {}
 
 void Dialog::addButton(std::string text, std::function<request::UIRequest()> cb) {
     buttons_.push_back(std::make_unique<Button>(win_, std::move(text), std::move(cb)));

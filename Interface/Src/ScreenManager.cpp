@@ -6,6 +6,31 @@
 
 namespace plague::ui {
 
+namespace {
+
+Screen * screenById(ScreenManager & manager, ScreenIds id) {
+    switch (id) {
+        case ScreenIds::SmallTerm: return &manager.smallTerm_;
+        case ScreenIds::MainMenu:  return &manager.mainMenu_;
+        case ScreenIds::Connect:   return &manager.connect_;
+        case ScreenIds::Settings:  return &manager.mainMenu_;
+        case ScreenIds::Game:      return &manager.game_;
+        case ScreenIds::Info:      return &manager.pathogen_;
+        case ScreenIds::Cure:      return &manager.cure_;
+        case ScreenIds::World:     return &manager.country_;
+        case ScreenIds::News:      return &manager.news_;
+
+        case ScreenIds::Transmission:
+        case ScreenIds::Clinic:
+        case ScreenIds::Abilities:
+            break;
+    }
+
+    return manager.curScreen;
+}
+
+}
+
 ScreenManager::ScreenManager(Config & cfg) : cfg_(cfg),
                                              mainWin_{terminalProfiles.at(cfg.resolution).height + deltaForBorders, terminalProfiles.at(cfg.resolution).width + deltaForBorders},
                                              smallTerm_{cfg, mainWin_},
@@ -20,7 +45,7 @@ ScreenManager::ScreenManager(Config & cfg) : cfg_(cfg),
                                              curScreen(&mainMenu_) {
     selectCurrentScreen();
     applyWindowLayout();
-     curScreen->resize();
+    curScreen->resize();
 }
 
 void ScreenManager::resize() {
@@ -64,39 +89,7 @@ void ScreenManager::selectCurrentScreen() {
         return;
     }
 
-    switch (cfg_.id) {
-        case ScreenIds::SmallTerm:
-            curScreen = &smallTerm_;
-            return;
-        case ScreenIds::MainMenu:
-            curScreen = &mainMenu_;
-            return;
-        case ScreenIds::Connect:
-            curScreen = &connect_;
-            return;
-        case ScreenIds::Settings:
-            curScreen = &mainMenu_;
-            return;
-        case ScreenIds::Game:
-            curScreen = &game_;
-            return;
-        case ScreenIds::Info:
-            curScreen = &pathogen_;
-            return;
-        case ScreenIds::Cure:
-            curScreen = &cure_;
-            return;
-        case ScreenIds::World:
-            curScreen = &country_;
-            return;
-        case ScreenIds::News:
-            curScreen = &news_;
-            return;
-        case ScreenIds::Transmission:
-        case ScreenIds::Clinic:
-        case ScreenIds::Abilities:
-            return;
-    }
+    curScreen = screenById(*this, cfg_.id);
 }
 
 }

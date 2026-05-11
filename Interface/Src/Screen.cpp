@@ -94,11 +94,6 @@ constexpr std::array<const char *, infoTabCount> infoTabLabels = {
     "News"
 };
 
-struct PanelLayout {
-    Rect buttons;
-    Rect body;
-};
-
 Rect innerRect(Rect outer) {
     return {
         outer.y + 1,
@@ -169,6 +164,22 @@ int directionalScore(Rect current, Rect candidate, int key) {
     const int secondary = (key == KEY_LEFT || key == KEY_RIGHT) ? std::abs(dy) : std::abs(dx);
 
     return primary * primary + secondary * secondary * 4;
+}
+
+template <std::size_t N>
+std::size_t wrappedIndexNear(const std::array<std::size_t, N> & indices,
+                             std::size_t focusedIndex,
+                             int direction) {
+    const auto it = std::find(indices.begin(), indices.end(), focusedIndex);
+    const std::size_t current = it == indices.end()
+        ? 0
+        : static_cast<std::size_t>(std::distance(indices.begin(), it));
+
+    if (direction < 0) {
+        return current == 0 ? N - 1 : current - 1;
+    }
+
+    return (current + 1) % N;
 }
 
 struct SubtypePresentation {
@@ -294,6 +305,11 @@ Widget * Screen::focusedWidget() {
     return widgets[focusedIndex_].get();
 }
 
+InputResult Screen::handleFocusedInput(int key) {
+    Widget * widget = focusedWidget();
+    return widget == nullptr ? InputResult{} : widget->handleInput(key);
+}
+
 
 MainMenuScreen::MainMenuScreen(Config & cfg, Window & win) : Screen(cfg, win) {
     auto logoWidget = std::make_unique<Info>(win_, R"(
@@ -346,15 +362,13 @@ void MainMenuScreen::resize() {
 }
 
 request::UIRequest MainMenuScreen::handleInput(int key) {
-    if (Widget * widget = focusedWidget()) {
-        const InputResult result = widget->handleInput(key);
-        if (!std::holds_alternative<request::None>(result.request)) {
-            return result.request;
-        }
+    const InputResult result = handleFocusedInput(key);
+    if (!std::holds_alternative<request::None>(result.request)) {
+        return result.request;
+    }
 
-        if (result.handled) {
-            return request::None{};
-        }
+    if (result.handled) {
+        return request::None{};
     }
 
     switch (key) {
@@ -457,15 +471,13 @@ void ConnectToServerScreen::resize() {
 }
 
 request::UIRequest ConnectToServerScreen::handleInput(int key) {
-    if (Widget * widget = focusedWidget()) {
-        const InputResult result = widget->handleInput(key);
-        if (!std::holds_alternative<request::None>(result.request)) {
-            return result.request;
-        }
+    const InputResult result = handleFocusedInput(key);
+    if (!std::holds_alternative<request::None>(result.request)) {
+        return result.request;
+    }
 
-        if (result.handled) {
-            return request::None{};
-        }
+    if (result.handled) {
+        return request::None{};
     }
 
     switch (key) {
@@ -627,33 +639,21 @@ void ChoosingSideScreen::focusBottomButton(std::size_t index) {
 }
 
 void ChoosingSideScreen::focusNextBottomButton() {
-    const auto it = std::find(choosingBottomButtonIndices.begin(), choosingBottomButtonIndices.end(), focusedIndex_);
-    const std::size_t current = it == choosingBottomButtonIndices.end()
-        ? 0
-        : static_cast<std::size_t>(std::distance(choosingBottomButtonIndices.begin(), it));
-
-    focusBottomButton((current + 1) % choosingBottomButtonIndices.size());
+    focusBottomButton(wrappedIndexNear(choosingBottomButtonIndices, focusedIndex_, 1));
 }
 
 void ChoosingSideScreen::focusPrevBottomButton() {
-    const auto it = std::find(choosingBottomButtonIndices.begin(), choosingBottomButtonIndices.end(), focusedIndex_);
-    const std::size_t current = it == choosingBottomButtonIndices.end()
-        ? 0
-        : static_cast<std::size_t>(std::distance(choosingBottomButtonIndices.begin(), it));
-
-    focusBottomButton((current + choosingBottomButtonIndices.size() - 1) % choosingBottomButtonIndices.size());
+    focusBottomButton(wrappedIndexNear(choosingBottomButtonIndices, focusedIndex_, -1));
 }
 
 request::UIRequest ChoosingSideScreen::handleInput(int key) {
-    if (Widget * widget = focusedWidget()) {
-        const InputResult result = widget->handleInput(key);
-        if (!std::holds_alternative<request::None>(result.request)) {
-            return result.request;
-        }
+    const InputResult result = handleFocusedInput(key);
+    if (!std::holds_alternative<request::None>(result.request)) {
+        return result.request;
+    }
 
-        if (result.handled) {
-            return request::None{};
-        }
+    if (result.handled) {
+        return request::None{};
     }
 
     switch (key) {
@@ -813,20 +813,6 @@ void GameScreen::focusCountry(std::size_t countryIndex) {
     updateSelectedCountryInfo();
 }
 
-void GameScreen::focusNextCountry() {
-    const std::size_t current = indexOfSelectedCountry < 0
-        ? 0
-        : static_cast<std::size_t>(indexOfSelectedCountry);
-    focusCountry((current + 1) % countryWidgetCount);
-}
-
-void GameScreen::focusPrevCountry() {
-    const std::size_t current = indexOfSelectedCountry < 0
-        ? 0
-        : static_cast<std::size_t>(indexOfSelectedCountry);
-    focusCountry((current + countryWidgetCount - 1) % countryWidgetCount);
-}
-
 void GameScreen::focusNearestCountry(int key) {
     if (indexOfSelectedCountry < 0 ||
         static_cast<std::size_t>(indexOfSelectedCountry) >= countryBounds_.size()) {
@@ -875,21 +861,11 @@ void GameScreen::focusActionButton(std::size_t buttonIndex) {
 }
 
 void GameScreen::focusNextActionButton() {
-    const auto it = std::find(gameActionButtonIndices.begin(), gameActionButtonIndices.end(), focusedIndex_);
-    const std::size_t current = it == gameActionButtonIndices.end()
-        ? 0
-        : static_cast<std::size_t>(std::distance(gameActionButtonIndices.begin(), it));
-
-    focusActionButton((current + 1) % gameActionButtonIndices.size());
+    focusActionButton(wrappedIndexNear(gameActionButtonIndices, focusedIndex_, 1));
 }
 
 void GameScreen::focusPrevActionButton() {
-    const auto it = std::find(gameActionButtonIndices.begin(), gameActionButtonIndices.end(), focusedIndex_);
-    const std::size_t current = it == gameActionButtonIndices.end()
-        ? 0
-        : static_cast<std::size_t>(std::distance(gameActionButtonIndices.begin(), it));
-
-    focusActionButton((current + gameActionButtonIndices.size() - 1) % gameActionButtonIndices.size());
+    focusActionButton(wrappedIndexNear(gameActionButtonIndices, focusedIndex_, -1));
 }
 
 void GameScreen::toggleNavigationMode() {
@@ -900,11 +876,6 @@ void GameScreen::toggleNavigationMode() {
 
     navigatingCountries_ = true;
     focusCountry(indexOfSelectedCountry < 0 ? 0 : static_cast<std::size_t>(indexOfSelectedCountry));
-}
-
-bool GameScreen::focusedOnCountry() const {
-    return focusedIndex_ >= countryWidgetStart &&
-           focusedIndex_ < countryWidgetStart + countryWidgetCount;
 }
 
 void GameScreen::updateSelectedCountryInfo() {
@@ -923,15 +894,13 @@ void GameScreen::updateSelectedCountryInfo() {
 }
 
 request::UIRequest GameScreen::handleInput(int key) {
-    if (Widget * widget = focusedWidget()) {
-        const InputResult result = widget->handleInput(key);
-        if (!std::holds_alternative<request::None>(result.request)) {
-            return result.request;
-        }
+    const InputResult result = handleFocusedInput(key);
+    if (!std::holds_alternative<request::None>(result.request)) {
+        return result.request;
+    }
 
-        if (result.handled) {
-            return request::None{};
-        }
+    if (result.handled) {
+        return request::None{};
     }
 
     switch (key) {
@@ -1059,16 +1028,14 @@ request::UIRequest InfoNavigationScreen::handleInput(int key) {
         return request::Game::Back;
     }
 
-    if (Widget * widget = focusedWidget()) {
-        const InputResult result = widget->handleInput(key);
-        if (!std::holds_alternative<request::None>(result.request)) {
-            return result.request;
-        }
+    const InputResult result = handleFocusedInput(key);
+    if (!std::holds_alternative<request::None>(result.request)) {
+        return result.request;
+    }
 
-        if (result.handled) {
-            afterHandledInput();
-            return request::None{};
-        }
+    if (result.handled) {
+        afterHandledInput();
+        return request::None{};
     }
 
     switch (key) {

@@ -19,7 +19,6 @@ public:
     virtual request::UIRequest handleInput(int key) = 0;
     virtual void resize();
     int getKey();
-    void add(std::unique_ptr<Widget> newWidget);
     Screen(Config & cfg, Window & win);
 protected:
     std::vector<std::unique_ptr<Widget>> widgets{};
@@ -31,6 +30,7 @@ protected:
     void focusNext();
     void focusPrev();
     Widget * focusedWidget();
+    InputResult handleFocusedInput(int key);
     std::size_t focusedIndex_ = 0;
 };
 
@@ -104,13 +104,10 @@ private:
     void loadCountryMaps();
     void focusCountry(std::size_t countryIndex);
     void focusNearestCountry(int key);
-    void focusNextCountry();
-    void focusPrevCountry();
     void focusActionButton(std::size_t buttonIndex);
     void focusNextActionButton();
     void focusPrevActionButton();
     void toggleNavigationMode();
-    bool focusedOnCountry() const;
     void updateSelectedCountryInfo();
 };
 
