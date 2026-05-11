@@ -1,8 +1,9 @@
 #pragma once
 
-#include "SocketTransport.hpp"
-#include "UIManager.hpp"
+#include "GameRenderer.hpp"
+#include "GameState.hpp"
 #include "RequestHandler.hpp"
+#include "SocketTransport.hpp"
 #include "UI_ClientAPI.hpp"
 
 #include <memory>
@@ -11,24 +12,19 @@ namespace plague {
 
 class ClientApp {
 public:
-    ClientApp(ui::UIManager& ui, SocketTransport& transport);
+    explicit ClientApp(SocketTransport& transport);
     void run();
 
 private:
     void handleRequest(const request::UIRequest& request);
     void setSituation(GameSituation newSituation);
-    void resetSnapshotForMenu();
+    void resetStateForMenu();
 
 private:
-    ui::UIManager& ui_;
     SocketTransport& transport_;
     std::unique_ptr<RequestHandler> request_handler_;
-    GameSnapshot snapshot_{
-        GameSituation::MainMenu,
-        0,
-        InfoAboutPlayer{PlayerRole::Humanity, 0},
-        {}
-    };
+    GameState game_state_;
+    GameRenderer renderer_;
     bool running_ = true;
 };
 

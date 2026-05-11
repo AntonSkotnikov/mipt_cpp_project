@@ -1,6 +1,7 @@
 #include "ClientApp.hpp"
 
 #include <chrono>
+#include <string>
 #include <thread>
 
 namespace plague {
@@ -12,8 +13,8 @@ constexpr int kServerPort = 5555;
 
 }
 
-ClientApp::ClientApp(ui::UIManager& ui, SocketTransport& transport)
-    : ui_(ui), transport_(transport), request_handler_(std::make_unique<RequestHandler>(transport)) {}
+ClientApp::ClientApp(SocketTransport& transport)
+    : transport_(transport), request_handler_(std::make_unique<RequestHandler>(transport)) {}
 
 void ClientApp::run() {
     using clock = std::chrono::steady_clock;
@@ -23,9 +24,10 @@ void ClientApp::run() {
     while (running_) {
         nextFrame += frameTime;
 
-        const request::UIRequest request = ui_.loop(snapshot_);
+        const request::UIRequest request = renderer_.pollInput(game_state_);
         handleRequest(request);
         request_handler_->update();
+        renderer_.render(game_state_);
 
         std::this_thread::sleep_until(nextFrame);
         if (clock::now() > nextFrame + frameTime) {
@@ -35,17 +37,15 @@ void ClientApp::run() {
 }
 
 void ClientApp::setSituation(GameSituation newSituation) {
-    snapshot_.situation = newSituation;
+    game_state_.setSituation(newSituation);
 }
 
-void ClientApp::resetSnapshotForMenu() {
-    snapshot_.day = 0;
-    snapshot_.playerInfo.points = 0;
-    snapshot_.recentNews.clear();
+void ClientApp::resetStateForMenu() {
+    game_state_.resetForMenu();
 }
 
 void ClientApp::handleRequest(const request::UIRequest& request) {
-    switch (snapshot_.situation) {
+    switch (game_state_.getSituation()) {
     case GameSituation::MainMenu:
         if (std::holds_alternative<request::MainMenu>(request) &&
             std::get<request::MainMenu>(request) == request::MainMenu::ConnectToServer) {
@@ -85,7 +85,7 @@ void ClientApp::handleRequest(const request::UIRequest& request) {
             }
 
             if (!transport_.isConnected() && !transport_.connectToServer(host.c_str(), port)) {
-                resetSnapshotForMenu();
+                resetStateForMenu();
                 setSituation(GameSituation::MainMenu);
                 break;
             }
@@ -95,17 +95,17 @@ void ClientApp::handleRequest(const request::UIRequest& request) {
                 "",
                 [this](const ServerResponse& response) {
                     if (response.success) {
-                        snapshot_.recentNews.clear();
+                        game_state_.clearNews();
                         setSituation(GameSituation::ChoosingSide);
                     } else {
                         transport_.disconnect();
-                        resetSnapshotForMenu();
+                        resetStateForMenu();
                         setSituation(GameSituation::MainMenu);
                     }
                 },
                 [this](RequestId) {
                     transport_.disconnect();
-                    resetSnapshotForMenu();
+                    resetStateForMenu();
                     setSituation(GameSituation::MainMenu);
                 });
         } else if (std::holds_alternative<request::ConnectInfo>(request) &&
@@ -115,7 +115,7 @@ void ClientApp::handleRequest(const request::UIRequest& request) {
         break;
 
     case GameSituation::ConnectingToServerFailed:
-        resetSnapshotForMenu();
+        resetStateForMenu();
         setSituation(GameSituation::MainMenu);
         break;
 
@@ -132,18 +132,16 @@ void ClientApp::handleRequest(const request::UIRequest& request) {
                     "",
                     [this](const ServerResponse& response) {
                         if (response.success) {
-                            snapshot_.playerInfo.role = PlayerRole::Humanity;
-                            snapshot_.playerInfo.points = 100;
-                            snapshot_.day = 1;
-                            snapshot_.recentNews.emplace_back(ImportanceOfNews::RegularNews, "Humanity side selected.");
+                            game_state_.setRole(PlayerRole::Humanity);
+                            game_state_.addNews(ImportanceOfNews::RegularNews, "Humanity side selected.");
                             setSituation(GameSituation::Game);
                         } else {
-                            resetSnapshotForMenu();
+                            resetStateForMenu();
                             setSituation(GameSituation::MainMenu);
                         }
                     },
                     [this](RequestId) {
-                        resetSnapshotForMenu();
+                        resetStateForMenu();
                         setSituation(GameSituation::MainMenu);
                     });
             } else if (action == request::MainMenu::OpenSettings) {
@@ -152,23 +150,21 @@ void ClientApp::handleRequest(const request::UIRequest& request) {
                     "",
                     [this](const ServerResponse& response) {
                         if (response.success) {
-                            snapshot_.playerInfo.role = PlayerRole::Pathogen;
-                            snapshot_.playerInfo.points = 100;
-                            snapshot_.day = 1;
-                            snapshot_.recentNews.emplace_back(ImportanceOfNews::RegularNews, "Pathogen side selected.");
+                            game_state_.setRole(PlayerRole::Pathogen);
+                            game_state_.addNews(ImportanceOfNews::RegularNews, "Pathogen side selected.");
                             setSituation(GameSituation::Game);
                         } else {
-                            resetSnapshotForMenu();
+                            resetStateForMenu();
                             setSituation(GameSituation::MainMenu);
                         }
                     },
                     [this](RequestId) {
-                        resetSnapshotForMenu();
+                        resetStateForMenu();
                         setSituation(GameSituation::MainMenu);
                     });
             } else if (action == request::MainMenu::Exit) {
                 transport_.disconnect();
-                resetSnapshotForMenu();
+                resetStateForMenu();
                 setSituation(GameSituation::MainMenu);
             }
         }
@@ -177,7 +173,7 @@ void ClientApp::handleRequest(const request::UIRequest& request) {
     case GameSituation::Game:
         if (std::holds_alternative<request::Settings>(request) &&
             std::get<request::Settings>(request) == request::Settings::Back) {
-            snapshot_.recentNews.emplace_back(ImportanceOfNews::RegularNews, "Left current game.");
+            game_state_.addNews(ImportanceOfNews::RegularNews, "Left current game.");
             setSituation(GameSituation::EndScreen);
         }
         break;
@@ -185,7 +181,7 @@ void ClientApp::handleRequest(const request::UIRequest& request) {
     case GameSituation::EndScreen:
         if (std::holds_alternative<request::Settings>(request) &&
             std::get<request::Settings>(request) == request::Settings::Back) {
-            resetSnapshotForMenu();
+            resetStateForMenu();
             setSituation(GameSituation::MainMenu);
         }
         break;
