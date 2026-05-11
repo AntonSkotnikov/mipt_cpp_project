@@ -22,6 +22,17 @@ enum class Connect {
     Connect
 };
 
+enum class ChoosingSideAction {
+    SelectSubtype,
+    ChangeSide,
+    Ready
+};
+
+struct ChoosingSide {
+    ChoosingSideAction action;
+    int subtypeIndex = 0;
+};
+
 enum class Game {
     Upgrade,
     Info,
@@ -45,6 +56,7 @@ using UIRequest = std::variant<
     MainMenu,
     Settings,
     ConnectInfo,
+    ChoosingSide,
     Game
 >;
 

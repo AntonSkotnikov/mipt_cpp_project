@@ -6,7 +6,6 @@
 #include <functional>
 #include <memory>
 #include <string>
-#include <string_view>
 #include <vector>
 
 namespace plague::ui {
@@ -56,6 +55,7 @@ public:
     void draw() override;
     InputResult handleInput(int key) override;
     bool focusable() const override { return true; }
+    void changeText(std::string newText);
 };
 
 class VariableInfo final : public Widget {
@@ -88,6 +88,7 @@ private:
 public:
     Info(Window & win, std::string text);
     void draw() override;
+    void changeText(std::string newText);
 };
 
 class Dialog final : public Widget {
@@ -131,6 +132,7 @@ public:
     DetalizedImage(Window & win);
     void draw() override;
     bool focusable() const override { return true; }
+    void clearSymbols();
     void addSymbol(SymbolOnScreen newSymbol);
     void addSymbols(std::vector<SymbolOnScreen> newSymbols);
 };
@@ -187,6 +189,7 @@ public:
     explicit Menu(Window & win);
 
     void addButton(std::string text, std::function<request::UIRequest()> cb);
+    void changeButtonText(std::size_t index, std::string text);
     void setRect(Rect rect) override;
     void setFocus(bool value) override;
     void draw() override;

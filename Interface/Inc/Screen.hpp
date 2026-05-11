@@ -2,6 +2,7 @@
 
 #include "Settings.hpp"
 #include "UIRequest.hpp"
+#include "UI_ClientAPI.hpp"
 #include "Window.hpp"
 #include "Widget.hpp"
 #include <cstddef>
@@ -63,6 +64,27 @@ private:
     void layout();
 };
 
+class ChoosingSideScreen final : public Screen {
+public:
+    ChoosingSideScreen(Config & cfg, Window & win);
+
+    request::UIRequest handleInput(int key) override;
+    void resize() override;
+    void updateSnapshot(const GameSnapshot & snapshot);
+private:
+    Menu * subtypeMenu_ = nullptr;
+    Info * description_ = nullptr;
+    VariableInfo * status_ = nullptr;
+    ColorDecorator * statusColor_ = nullptr;
+    GameSnapshot snapshot_{};
+
+    void layout();
+    void updateTexts();
+    void focusBottomButton(std::size_t index);
+    void focusNextBottomButton();
+    void focusPrevBottomButton();
+};
+
 class GameScreen final : public Screen {
 public:
     GameScreen(Config & cfg, Window & win);
@@ -72,10 +94,16 @@ public:
 private:
     int indexOfSelectedCountry = -1; // -1 == world
     bool navigatingCountries_ = true;
+    bool countryMapsLoaded_ = false;
+    Resolutions loadedMapResolution_ = Resolutions::Low;
     VariableInfo * selectedCountryInfo_ = nullptr;
+    std::vector<DetalizedImage *> countryImages_;
+    std::vector<Rect> countryBounds_;
 
     void layout();
+    void loadCountryMaps();
     void focusCountry(std::size_t countryIndex);
+    void focusNearestCountry(int key);
     void focusNextCountry();
     void focusPrevCountry();
     void focusActionButton(std::size_t buttonIndex);

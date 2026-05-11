@@ -16,6 +16,43 @@ constexpr const char * lowMapDirs[] = {
     "../Interface/Maps/Low"
 };
 
+constexpr const char * mediumMapDirs[] = {
+    "Interface/Inc/Maps/MediumMap",
+    "Interface/Maps/Medium",
+    "../Interface/Inc/Maps/MediumMap",
+    "../Interface/Maps/Medium"
+};
+
+constexpr const char * highMapDirs[] = {
+    "Interface/Inc/Maps/HighMap",
+    "Interface/Maps/High",
+    "../Interface/Inc/Maps/HighMap",
+    "../Interface/Maps/High"
+};
+
+struct MapDirSet {
+    const char * const * dirs;
+    std::size_t count;
+};
+
+template <std::size_t N>
+constexpr MapDirSet dirSet(const char * const (&dirs)[N]) {
+    return {dirs, N};
+}
+
+MapDirSet dirsForResolution(Resolutions resolution) {
+    switch (resolution) {
+        case Resolutions::Low:
+            return dirSet(lowMapDirs);
+        case Resolutions::Medium:
+            return dirSet(mediumMapDirs);
+        case Resolutions::High:
+            return dirSet(highMapDirs);
+    }
+
+    return dirSet(lowMapDirs);
+}
+
 std::size_t utf8SymbolLength(unsigned char ch) {
     if ((ch & 0b10000000) == 0) return 1;
     if ((ch & 0b11100000) == 0b11000000) return 2;
@@ -59,14 +96,20 @@ std::vector<SymbolOnScreen> parseMapFile(const std::filesystem::path & path) {
 }
 
 std::vector<SymbolOnScreen> parseLowMapCountry(const std::string & countryName) {
-    for (const char * dir : lowMapDirs) {
-        const std::filesystem::path path = std::filesystem::path(dir) / countryName;
+    return parseMapCountry(countryName, Resolutions::Low);
+}
+
+std::vector<SymbolOnScreen> parseMapCountry(const std::string & countryName, Resolutions resolution) {
+    const MapDirSet dirs = dirsForResolution(resolution);
+
+    for (std::size_t i = 0; i < dirs.count; i++) {
+        const std::filesystem::path path = std::filesystem::path(dirs.dirs[i]) / countryName;
         if (std::filesystem::exists(path)) {
             return parseMapFile(path);
         }
     }
 
-    return parseMapFile(std::filesystem::path(lowMapDirs[0]) / countryName);
+    return parseMapFile(std::filesystem::path(dirs.dirs[0]) / countryName);
 }
 
 }

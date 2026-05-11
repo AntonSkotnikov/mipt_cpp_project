@@ -1,3 +1,4 @@
+#include "GameTypes.hpp"
 #include "MapParser.hpp"
 #include "Screen.hpp"
 #include "Settings.hpp"
@@ -7,15 +8,16 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstdlib>
 #include <iterator>
+#include <limits>
 #include <memory>
 #include <ncurses.h>
+#include <string>
 #include <variant>
 
 
 namespace plague::ui {
-
-namespace {
 
 constexpr std::array<const char *, 29> lowMapCountries = {
     "AUSTRALIA",
@@ -66,6 +68,18 @@ constexpr std::array<std::size_t, 2> gameActionButtonIndices = {
     gameUpgradeIndex,
     gameWorldButtonIndex
 };
+constexpr std::size_t choosingStatusIndex = 0;
+constexpr std::size_t choosingMenuIndex = 1;
+constexpr std::size_t choosingDescriptionIndex = 2;
+constexpr std::size_t choosingChangeSideIndex = 3;
+constexpr std::size_t choosingReadyIndex = 4;
+constexpr std::array<std::size_t, 2> choosingBottomButtonIndices = {
+    choosingChangeSideIndex,
+    choosingReadyIndex
+};
+constexpr int defaultColorPair = 0;
+constexpr int blueColorPair = 2;
+constexpr int greenColorPair = 3;
 
 struct PanelLayout {
     Rect buttons;
@@ -80,25 +94,125 @@ Rect innerRect(Rect outer) {
         std::max(1, outer.width - 2)
     };
 }
-/*
-PanelLayout gamePanelLayout(Window & win) {
-    const int padding = win.bordered() ? 2 : 1;
-    const int gap = 1;
-    const int contentX = padding;
-    const int contentY = padding;
-    const int contentWidth = std::max(1, win.width() - padding * 2);
-    const int contentHeight = std::max(1, win.height() - padding * 2);
-    const int buttonsHeight = 3;
-    const int bodyY = contentY + buttonsHeight + gap;
-    const int bodyHeight = std::max(3, contentHeight - buttonsHeight - gap);
+
+Rect countryBounds(const std::vector<SymbolOnScreen> & symbols) {
+    if (symbols.empty()) {
+        return {};
+    }
+
+    int minY = symbols.front().y;
+    int maxY = symbols.front().y;
+    int minX = symbols.front().x;
+    int maxX = symbols.front().x;
+
+    for (const SymbolOnScreen & symbol : symbols) {
+        minY = std::min(minY, symbol.y);
+        maxY = std::max(maxY, symbol.y);
+        minX = std::min(minX, symbol.x);
+        maxX = std::max(maxX, symbol.x);
+    }
 
     return {
-        {contentY, contentX, buttonsHeight, contentWidth},
-        innerRect({bodyY, contentX, bodyHeight, contentWidth})
+        minY,
+        minX,
+        maxY - minY + 1,
+        maxX - minX + 1
     };
 }
-*/
+
+bool validCountryBounds(Rect bounds) {
+    return bounds.height > 0 && bounds.width > 0;
 }
+
+int centerY(Rect bounds) {
+    return bounds.y + bounds.height / 2;
+}
+
+int centerX(Rect bounds) {
+    return bounds.x + bounds.width / 2;
+}
+
+bool isCountryInDirection(Rect current,
+                          Rect candidate,
+                          int key) {
+    switch (key) {
+        case KEY_LEFT:
+            return centerX(candidate) < centerX(current);
+        case KEY_RIGHT:
+            return centerX(candidate) > centerX(current);
+        case KEY_UP:
+            return centerY(candidate) < centerY(current);
+        case KEY_DOWN:
+            return centerY(candidate) > centerY(current);
+    }
+
+    return false;
+}
+
+int directionalScore(Rect current, Rect candidate, int key) {
+    const int dx = centerX(candidate) - centerX(current);
+    const int dy = centerY(candidate) - centerY(current);
+    const int primary = (key == KEY_LEFT || key == KEY_RIGHT) ? std::abs(dx) : std::abs(dy);
+    const int secondary = (key == KEY_LEFT || key == KEY_RIGHT) ? std::abs(dy) : std::abs(dx);
+
+    return primary * primary + secondary * secondary * 4;
+}
+
+struct SubtypePresentation {
+    PlayerSubtype subtype;
+    const char * label;
+    const char * description;
+};
+
+const std::array<SubtypePresentation, 1> humanitySubtypes = {{
+    {
+        HumanitySubtype::ResearchInstitute,
+        "Research Institute",
+        "WIP"
+    }
+}};
+
+const std::array<SubtypePresentation, 1> pathogenSubtypes = {{
+    {
+        PathogenSubtype::Virus,
+        "Virus",
+        "WIP"
+    }
+}};
+
+std::size_t subtypeCountFor(PlayerRole role) {
+    return role == PlayerRole::Humanity ? humanitySubtypes.size() : pathogenSubtypes.size();
+}
+
+std::size_t maxSubtypeCount() {
+    return std::max(humanitySubtypes.size(), pathogenSubtypes.size());
+}
+
+const SubtypePresentation & subtypeAt(PlayerRole role, std::size_t index) {
+    if (role == PlayerRole::Humanity) {
+        return humanitySubtypes[std::min(index, humanitySubtypes.size() - 1)];
+    }
+
+    return pathogenSubtypes[std::min(index, pathogenSubtypes.size() - 1)];
+}
+
+const SubtypePresentation & presentationFor(PlayerRole role, PlayerSubtype subtype) {
+    const std::size_t count = subtypeCountFor(role);
+
+    for (std::size_t i = 0; i < count; i++) {
+        const SubtypePresentation & item = subtypeAt(role, i);
+        if (item.subtype == subtype) {
+            return item;
+        }
+    }
+
+    return subtypeAt(role, 0);
+}
+
+const char * roleName(PlayerRole role) {
+    return role == PlayerRole::Humanity ? "Humanity" : "Pathogen";
+}
+
 
 Screen::Screen(Config & cfg, Window & mainWin) : cfg_(cfg), win_(mainWin) {};
 
@@ -356,14 +470,226 @@ request::UIRequest ConnectToServerScreen::handleInput(int key) {
     return request::None{};
 }
 
+ChoosingSideScreen::ChoosingSideScreen(Config & cfg, Window & win) : Screen(cfg, win) {
+    auto status = std::make_unique<VariableInfo>(win_, "");
+    status_ = status.get();
+    auto coloredStatus = std::make_unique<ColorDecorator>(win_, std::move(status), defaultColorPair);
+    statusColor_ = coloredStatus.get();
+    widgets.push_back(std::move(coloredStatus));
+
+    auto subtypeMenu = std::make_unique<Menu>(win_);
+    subtypeMenu_ = subtypeMenu.get();
+    for (std::size_t index = 0; index < maxSubtypeCount(); index++) {
+        subtypeMenu->addButton("", [index]() -> request::UIRequest {
+            return request::ChoosingSide{request::ChoosingSideAction::SelectSubtype, static_cast<int>(index)};
+        });
+    }
+    widgets.push_back(std::make_unique<LabelDecorator>(
+        win_,
+        std::make_unique<FrameDecorator>(win_, std::move(subtypeMenu)),
+        "Subtype"
+    ));
+
+    auto description = std::make_unique<Info>(win_, "");
+    description_ = description.get();
+    widgets.push_back(std::make_unique<LabelDecorator>(
+        win_,
+        std::make_unique<FrameDecorator>(win_, std::move(description)),
+        "Description"
+    ));
+
+    widgets.push_back(std::make_unique<FrameDecorator>(
+        win_,
+        std::make_unique<Button>(win_, "Change side", []() -> request::UIRequest {
+            return request::ChoosingSide{request::ChoosingSideAction::ChangeSide, 0};
+        })
+    ));
+
+    widgets.push_back(std::make_unique<FrameDecorator>(
+        win_,
+        std::make_unique<Button>(win_, "Ready", []() -> request::UIRequest {
+            return request::ChoosingSide{request::ChoosingSideAction::Ready, 0};
+        })
+    ));
+
+    updateTexts();
+    layout();
+    focusFirst();
+}
+
+void ChoosingSideScreen::updateSnapshot(const GameSnapshot & snapshot) {
+    snapshot_ = snapshot;
+    updateTexts();
+}
+
+void ChoosingSideScreen::updateTexts() {
+    const PlayerRole role = snapshot_.playerInfo.role;
+    const PlayerSubtype subtype = presentationFor(role, snapshot_.choosingSide.selectedSubtype).subtype;
+    const std::size_t count = subtypeCountFor(role);
+
+    if (subtypeMenu_ != nullptr) {
+        for (std::size_t i = 0; i < maxSubtypeCount(); i++) {
+            const std::string label = i < count ? subtypeAt(role, i).label : "";
+            subtypeMenu_->changeButtonText(i, label);
+        }
+    }
+
+    const SubtypePresentation & selected = presentationFor(role, subtype);
+    if (description_ != nullptr) {
+        description_->changeText(selected.description);
+    }
+
+    if (status_ == nullptr || statusColor_ == nullptr) {
+        return;
+    }
+
+    int colorPair = defaultColorPair;
+    std::string line = std::string("You play as ") + roleName(role) + ": " + selected.label;
+
+    if (snapshot_.choosingSide.opponentSideChangeRequested ||
+        snapshot_.choosingSide.signal == ChoosingSideSignal::OpponentRequestsSideChange) {
+        line = "Opponent wants to change side";
+        colorPair = blueColorPair;
+    } else if (snapshot_.choosingSide.opponentReady ||
+               snapshot_.choosingSide.signal == ChoosingSideSignal::OpponentReady) {
+        line = "Opponent is ready";
+        colorPair = blueColorPair;
+    } else if (snapshot_.choosingSide.ready ||
+               snapshot_.choosingSide.signal == ChoosingSideSignal::LocalReady) {
+        line = std::string("Ready: you play as ") + roleName(role) + ": " + selected.label;
+        colorPair = greenColorPair;
+    }
+
+    status_->changeLine(line);
+    statusColor_->setColorPair(colorPair);
+}
+
+void ChoosingSideScreen::layout() {
+    if (widgets.size() < 5) return;
+
+    const int padding = win_.bordered() ? 2 : 1;
+    const int contentX = padding;
+    const int contentY = padding;
+    const int contentWidth = std::max(1, win_.width() - padding * 2);
+    const int contentHeight = std::max(1, win_.height() - padding * 2);
+    const int gap = 1;
+    const int statusHeight = 1;
+    const int bottomHeight = 3;
+    const int bodyY = contentY + statusHeight + gap;
+    const int bodyHeight = std::max(5, contentHeight - statusHeight - bottomHeight - gap * 2);
+    const int bottomY = bodyY + bodyHeight + gap;
+    const int menuWidth = std::min(36, std::max(24, contentWidth / 3));
+    const int descriptionX = contentX + menuWidth + gap;
+    const int descriptionWidth = std::max(1, contentX + contentWidth - descriptionX);
+
+    widgets[choosingStatusIndex]->setRect({contentY, contentX, statusHeight, contentWidth});
+    widgets[choosingMenuIndex]->setRect({
+        bodyY + 2,
+        contentX + 1,
+        std::max(1, bodyHeight - 3),
+        std::max(1, menuWidth - 2)
+    });
+    widgets[choosingDescriptionIndex]->setRect({
+        bodyY + 2,
+        descriptionX + 1,
+        std::max(1, bodyHeight - 3),
+        std::max(1, descriptionWidth - 2)
+    });
+
+    const int buttonWidth = std::min(20, std::max(12, contentWidth / 5));
+    widgets[choosingChangeSideIndex]->setRect(innerRect({bottomY, contentX, bottomHeight, buttonWidth}));
+    widgets[choosingReadyIndex]->setRect(innerRect({bottomY, contentX + contentWidth - buttonWidth, bottomHeight, buttonWidth}));
+}
+
+void ChoosingSideScreen::resize() {
+    layout();
+}
+
+void ChoosingSideScreen::focusBottomButton(std::size_t index) {
+    if (index >= choosingBottomButtonIndices.size()) {
+        return;
+    }
+
+    focusWidget(choosingBottomButtonIndices[index]);
+}
+
+void ChoosingSideScreen::focusNextBottomButton() {
+    const auto it = std::find(choosingBottomButtonIndices.begin(), choosingBottomButtonIndices.end(), focusedIndex_);
+    const std::size_t current = it == choosingBottomButtonIndices.end()
+        ? 0
+        : static_cast<std::size_t>(std::distance(choosingBottomButtonIndices.begin(), it));
+
+    focusBottomButton((current + 1) % choosingBottomButtonIndices.size());
+}
+
+void ChoosingSideScreen::focusPrevBottomButton() {
+    const auto it = std::find(choosingBottomButtonIndices.begin(), choosingBottomButtonIndices.end(), focusedIndex_);
+    const std::size_t current = it == choosingBottomButtonIndices.end()
+        ? 0
+        : static_cast<std::size_t>(std::distance(choosingBottomButtonIndices.begin(), it));
+
+    focusBottomButton((current + choosingBottomButtonIndices.size() - 1) % choosingBottomButtonIndices.size());
+}
+
+request::UIRequest ChoosingSideScreen::handleInput(int key) {
+    if (Widget * widget = focusedWidget()) {
+        const InputResult result = widget->handleInput(key);
+        if (!std::holds_alternative<request::None>(result.request)) {
+            return result.request;
+        }
+
+        if (result.handled) {
+            return request::None{};
+        }
+    }
+
+    switch (key) {
+        case KEY_UP:
+            focusWidget(choosingMenuIndex);
+            return request::None{};
+
+        case KEY_DOWN:
+            focusBottomButton(0);
+            return request::None{};
+
+        case KEY_LEFT:
+            if (focusedIndex_ == choosingReadyIndex || focusedIndex_ == choosingChangeSideIndex) {
+                focusPrevBottomButton();
+            } else {
+                focusWidget(choosingMenuIndex);
+            }
+            return request::None{};
+
+        case KEY_RIGHT:
+            if (focusedIndex_ == choosingReadyIndex || focusedIndex_ == choosingChangeSideIndex) {
+                focusNextBottomButton();
+            } else {
+                focusBottomButton(1);
+            }
+            return request::None{};
+
+        case KEY_BTAB:
+            focusPrev();
+            return request::None{};
+
+        case '\t':
+            focusNext();
+            return request::None{};
+    }
+
+    return request::None{};
+}
+
 GameScreen::GameScreen(Config & cfg, Window & win) : Screen(cfg, win) {
     widgets.push_back(std::make_unique<FrameDecorator>(win_, std::make_unique<Info>(win_, "")));
 
-    for (const char * countryName : lowMapCountries) {
+    for (std::size_t i = 0; i < countryWidgetCount; i++) {
         auto countryImage = std::make_unique<DetalizedImage>(win_);
-        countryImage->addSymbols(parseLowMapCountry(countryName));
+        countryImages_.push_back(countryImage.get());
         widgets.push_back(std::make_unique<ColorDecorator>(win_, std::move(countryImage), COLOR_BLACK));
     }
+
+    loadCountryMaps();
 
     widgets.push_back(std::make_unique<FrameDecorator>(win_, std::make_unique<VariableInfo>(win_, "DNA: 0")));
     widgets.push_back(std::make_unique<FrameDecorator>(win_, std::make_unique<VariableInfo>(win_, "Ill: 0")));
@@ -438,7 +764,30 @@ void GameScreen::layout() {
 }
 
 void GameScreen::resize() {
+    if (!countryMapsLoaded_ || loadedMapResolution_ != cfg_.resolution) {
+        loadCountryMaps();
+    }
+
     layout();
+}
+
+void GameScreen::loadCountryMaps() {
+    if (countryImages_.size() != countryWidgetCount) {
+        return;
+    }
+
+    countryBounds_.assign(countryWidgetCount, {});
+
+    for (std::size_t i = 0; i < countryWidgetCount; i++) {
+        std::vector<SymbolOnScreen> symbols = parseMapCountry(lowMapCountries[i], cfg_.resolution);
+        countryBounds_[i] = countryBounds(symbols);
+
+        countryImages_[i]->clearSymbols();
+        countryImages_[i]->addSymbols(std::move(symbols));
+    }
+
+    loadedMapResolution_ = cfg_.resolution;
+    countryMapsLoaded_ = true;
 }
 
 void GameScreen::focusCountry(std::size_t countryIndex) {
@@ -463,6 +812,44 @@ void GameScreen::focusPrevCountry() {
         ? 0
         : static_cast<std::size_t>(indexOfSelectedCountry);
     focusCountry((current + countryWidgetCount - 1) % countryWidgetCount);
+}
+
+void GameScreen::focusNearestCountry(int key) {
+    if (indexOfSelectedCountry < 0 ||
+        static_cast<std::size_t>(indexOfSelectedCountry) >= countryBounds_.size()) {
+        focusCountry(0);
+        return;
+    }
+
+    const std::size_t currentIndex = static_cast<std::size_t>(indexOfSelectedCountry);
+    const Rect current = countryBounds_[currentIndex];
+    if (!validCountryBounds(current)) {
+        return;
+    }
+
+    std::size_t bestIndex = currentIndex;
+    int bestScore = std::numeric_limits<int>::max();
+
+    for (std::size_t i = 0; i < countryBounds_.size(); i++) {
+        if (i == currentIndex || !validCountryBounds(countryBounds_[i])) {
+            continue;
+        }
+
+        const Rect candidate = countryBounds_[i];
+        if (!isCountryInDirection(current, candidate, key)) {
+            continue;
+        }
+
+        const int score = directionalScore(current, candidate, key);
+        if (score < bestScore) {
+            bestScore = score;
+            bestIndex = i;
+        }
+    }
+
+    if (bestIndex != currentIndex) {
+        focusCountry(bestIndex);
+    }
 }
 
 void GameScreen::focusActionButton(std::size_t buttonIndex) {
@@ -538,7 +925,7 @@ request::UIRequest GameScreen::handleInput(int key) {
         case KEY_LEFT:
         case KEY_UP:
             if (navigatingCountries_) {
-                focusPrevCountry();
+                focusNearestCountry(key);
             } else {
                 focusPrevActionButton();
             }
@@ -547,7 +934,7 @@ request::UIRequest GameScreen::handleInput(int key) {
         case KEY_RIGHT:
         case KEY_DOWN:
             if (navigatingCountries_) {
-                focusNextCountry();
+                focusNearestCountry(key);
             } else {
                 focusNextActionButton();
             }

@@ -11,6 +11,7 @@ ScreenManager::ScreenManager(Config & cfg) : cfg_(cfg),
                                              smallTerm_{cfg, mainWin_},
                                              mainMenu_{cfg, mainWin_},
                                              connect_(cfg, mainWin_),
+                                             choosingSide_(cfg, mainWin_),
                                              game_{cfg, mainWin_},
                                              //info_{cfg, mainWin_},
                                              //trans_{cfg, mainWin_},
@@ -31,6 +32,7 @@ void ScreenManager::resize() {
     smallTerm_.resize();
     mainMenu_.resize();
     connect_.resize();
+    choosingSide_.resize();
     game_.resize();
     //info_.resize();
     //trans_.resize();

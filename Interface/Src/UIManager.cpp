@@ -86,6 +86,12 @@ bool applyGameRequest(Config & cfg, ScreenManager & manager, request::Game reque
     return true;
 }
 
+void enforceSmallTerminalScreen(const Config & cfg, ScreenManager & manager) {
+    if (cfg.terminalTooSmall) {
+        manager.curScreen = &manager.smallTerm_;
+    }
+}
+
 }
 
 UIManager::UIManager() {
@@ -107,6 +113,8 @@ UIManager::UIManager() {
         start_color();
         use_default_colors();
         init_pair(1, COLOR_YELLOW, -1);
+        init_pair(2, COLOR_BLUE, -1);
+        init_pair(3, COLOR_GREEN, -1);
     }
 
     int widthOfTerm, heightOfTerm;
@@ -134,6 +142,10 @@ request::UIRequest UIManager::loop(GameSnapshot snap) {
         case plague::GameSituation::MainMenu:        man_->curScreen = &man_->mainMenu_; break;
         case plague::GameSituation::ConnectToServer: man_->curScreen = &man_->connect_; break;
         case plague::GameSituation::ConnectingToServer: man_->curScreen = &man_->connect_; break;
+        case plague::GameSituation::ChoosingSide:
+            man_->choosingSide_.updateSnapshot(snap_);
+            man_->curScreen = &man_->choosingSide_;
+            break;
         case plague::GameSituation::Game:
             if (cfg_.id == ScreenIds::MainMenu || cfg_.id == ScreenIds::Connect || cfg_.id == ScreenIds::Settings) {
                 cfg_.id = ScreenIds::Game;
@@ -146,6 +158,8 @@ request::UIRequest UIManager::loop(GameSnapshot snap) {
 #ifdef DEBUGGAME
     man_->curScreen = &man_->game_;
 #endif
+
+    enforceSmallTerminalScreen(cfg_, *man_);
     
     int key = man_->curScreen->getKey();
 
@@ -172,8 +186,9 @@ request::UIRequest UIManager::loop(GameSnapshot snap) {
 void UIManager::resize() {
     endwin();
     refresh();
-    erase();
     clearok(stdscr, TRUE);
+    erase();
+    refresh();
 
     int heightOfTerm = 0;
     int widthOfTerm = 0;
@@ -186,9 +201,15 @@ void UIManager::resize() {
         case plague::GameSituation::MainMenu:        man_->curScreen = &man_->mainMenu_; break;
         case plague::GameSituation::ConnectToServer: man_->curScreen = &man_->connect_; break;
         case plague::GameSituation::ConnectingToServer: man_->curScreen = &man_->connect_; break;
+        case plague::GameSituation::ChoosingSide:
+            man_->choosingSide_.updateSnapshot(snap_);
+            man_->curScreen = &man_->choosingSide_;
+            break;
         case plague::GameSituation::Game:            man_->curScreen = &man_->game_; break;
         default: break;
     }
+
+    enforceSmallTerminalScreen(cfg_, *man_);
 
     man_->curScreen->resize();
     man_->curScreen->draw();
