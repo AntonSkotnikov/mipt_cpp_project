@@ -36,19 +36,18 @@ void updateTerminalConfig(Config & cfg, int terminalHeight, int terminalWidth) {
     cfg.resolution = chooseResolution(terminalHeight, terminalWidth);
 }
 
-/*void selectGameScreen(ScreenManager & manager, ScreenIds id) {
+void selectGameScreen(ScreenManager & manager, ScreenIds id) {
     switch (id) {
-        case ScreenIds::Info:         manager.curScreen = &manager.info_; break;
-        case ScreenIds::Transmission: manager.curScreen = &manager.trans_; break;
-        case ScreenIds::Clinic:       manager.curScreen = &manager.clinic_; break;
-        case ScreenIds::Abilities:    manager.curScreen = &manager.abilities_; break;
-        case ScreenIds::World:        manager.curScreen = &manager.world_; break;
+        case ScreenIds::Info:         manager.curScreen = &manager.pathogen_; break;
         case ScreenIds::Cure:         manager.curScreen = &manager.cure_; break;
+        case ScreenIds::World:        manager.curScreen = &manager.country_; break;
         case ScreenIds::News:         manager.curScreen = &manager.news_; break;
         case ScreenIds::Game:
-        default:                      manager.curScreen = &manager.game_; break;
+        default:
+            manager.curScreen = &manager.game_;
+            break;
     }
-}*/
+}
 
 bool applyGameRequest(Config & cfg, ScreenManager & manager, request::Game request) {
     switch (request) {
@@ -81,7 +80,7 @@ bool applyGameRequest(Config & cfg, ScreenManager & manager, request::Game reque
             break;
     }
 
-    //selectGameScreen(manager, cfg.id);
+    selectGameScreen(manager, cfg.id);
     manager.curScreen->resize();
     return true;
 }
@@ -150,13 +149,13 @@ request::UIRequest UIManager::loop(GameSnapshot snap) {
             if (cfg_.id == ScreenIds::MainMenu || cfg_.id == ScreenIds::Connect || cfg_.id == ScreenIds::Settings) {
                 cfg_.id = ScreenIds::Game;
             }
-            //selectGameScreen(*man_, cfg_.id);
+            selectGameScreen(*man_, cfg_.id);
             break;
         default: break;
     }
 
 #ifdef DEBUGGAME
-    man_->curScreen = &man_->game_;
+    man_->curScreen = &man_->news_;
 #endif
 
     enforceSmallTerminalScreen(cfg_, *man_);
@@ -205,7 +204,7 @@ void UIManager::resize() {
             man_->choosingSide_.updateSnapshot(snap_);
             man_->curScreen = &man_->choosingSide_;
             break;
-        case plague::GameSituation::Game:            man_->curScreen = &man_->game_; break;
+        case plague::GameSituation::Game:            selectGameScreen(*man_, cfg_.id); break;
         default: break;
     }
 

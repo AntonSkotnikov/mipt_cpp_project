@@ -17,14 +17,11 @@ public:
     ChoosingSideScreen choosingSide_;
 
     GameScreen game_;
-    ////InfoScreen info_;
-    //TransmissionScreen trans_; // carantine for humanity
-    //ClinicScreen clinic_;
-    //AbilitiesScreen abilities_; // operation for humanity
-//
-    //WorldScreen world_;
-    //CureScreen cure_;
-    //NewsScreen news_;
+
+    PathogenInfoScreen pathogen_;
+    CureInfoScreen cure_;
+    CountryScreen country_;
+    NewsScreen news_;
 
     Screen * curScreen = &mainMenu_;
     ScreenManager(Config & cfg);

@@ -181,6 +181,7 @@ class Menu final : public Widget {
 private:
     std::vector<std::unique_ptr<Button>> buttons_;
     std::size_t selectedIndex_ = 0;
+    std::size_t firstVisibleIndex_ = 0;
 
     void layoutButtons();
     std::size_t selectableCount() const;
@@ -195,6 +196,7 @@ public:
     void draw() override;
     InputResult handleInput(int key) override;
     bool focusable() const override { return !buttons_.empty(); }
+    std::size_t selectedIndex() const { return selectedIndex_; }
 };
 
 class TabBar final : public Widget {

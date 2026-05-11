@@ -80,6 +80,19 @@ constexpr std::array<std::size_t, 2> choosingBottomButtonIndices = {
 constexpr int defaultColorPair = 0;
 constexpr int blueColorPair = 2;
 constexpr int greenColorPair = 3;
+constexpr std::size_t infoTabCount = 4;
+constexpr std::array<request::Game, infoTabCount> infoTabRequests = {
+    request::Game::Info,
+    request::Game::Cure,
+    request::Game::World,
+    request::Game::News
+};
+constexpr std::array<const char *, infoTabCount> infoTabLabels = {
+    "Pathogen",
+    "Cure",
+    "Countries",
+    "News"
+};
 
 struct PanelLayout {
     Rect buttons;
@@ -979,6 +992,224 @@ request::UIRequest GameScreen::handleInput(int key) {
     }
 
     return request::None{};
+}
+
+InfoNavigationScreen::InfoNavigationScreen(Config & cfg, Window & win)
+    : Screen(cfg, win) {
+
+    for (std::size_t i = 0; i < infoTabCount; i++) {
+        std::string label = infoTabLabels[i];
+
+        widgets.push_back(std::make_unique<FrameDecorator>(
+            win_,
+            std::make_unique<Button>(win_, std::move(label), [i]() -> request::UIRequest {
+                return infoTabRequests[i];
+            })
+        ));
+    }
+
+    layoutNavigation();
+    focusFirst();
+}
+
+void InfoNavigationScreen::layoutNavigation() {
+    if (widgets.size() < infoTabCount) return;
+
+    const int padding = win_.bordered() ? 2 : 1;
+    const int contentX = padding;
+    const int contentY = padding;
+    const int contentWidth = std::max(1, win_.width() - padding * 2);
+    const int gap = 1;
+    const int tabHeight = 3;
+    const int tabWidth = std::max(8, (contentWidth - gap * static_cast<int>(infoTabCount - 1)) / static_cast<int>(infoTabCount));
+
+    for (std::size_t i = 0; i < infoTabCount; i++) {
+        const int x = contentX + static_cast<int>(i) * (tabWidth + gap);
+        const int width = i == infoTabCount - 1
+            ? std::max(1, contentX + contentWidth - x)
+            : tabWidth;
+        widgets[i]->setRect(innerRect({contentY, x, tabHeight, width}));
+    }
+}
+
+Rect InfoNavigationScreen::bodyRect() const {
+    const int padding = win_.bordered() ? 2 : 1;
+    const int contentX = padding;
+    const int contentY = padding;
+    const int contentWidth = std::max(1, win_.width() - padding * 2);
+    const int contentHeight = std::max(1, win_.height() - padding * 2);
+    const int tabHeight = 3;
+    const int gap = 1;
+
+    return {
+        contentY + tabHeight + gap + 1,
+        contentX + 1,
+        std::max(1, contentHeight - tabHeight - gap - 2),
+        std::max(1, contentWidth - 2)
+    };
+}
+
+void InfoNavigationScreen::resize() {
+    layoutNavigation();
+    layoutBody();
+}
+
+request::UIRequest InfoNavigationScreen::handleInput(int key) {
+    if (key == 27) {
+        return request::Game::Back;
+    }
+
+    if (Widget * widget = focusedWidget()) {
+        const InputResult result = widget->handleInput(key);
+        if (!std::holds_alternative<request::None>(result.request)) {
+            return result.request;
+        }
+
+        if (result.handled) {
+            afterHandledInput();
+            return request::None{};
+        }
+    }
+
+    switch (key) {
+        case KEY_LEFT:
+        case KEY_UP:
+        case KEY_BTAB:
+            focusPrev();
+            afterHandledInput();
+            return request::None{};
+
+        case KEY_RIGHT:
+        case KEY_DOWN:
+        case '\t':
+            focusNext();
+            afterHandledInput();
+            return request::None{};
+    }
+
+    return request::None{};
+}
+
+PathogenInfoScreen::PathogenInfoScreen(Config & cfg, Window & win)
+    : InfoNavigationScreen(cfg, win) {
+    widgets.push_back(std::make_unique<FrameDecorator>(
+        win_,
+        std::make_unique<Info>(win_, "Pathogen information\n\nWIP")
+    ));
+    layout();
+}
+
+void PathogenInfoScreen::layout() {
+    layoutNavigation();
+    if (widgets.size() > bodyWidgetStart) {
+        widgets[bodyWidgetStart]->setRect(bodyRect());
+    }
+}
+
+void PathogenInfoScreen::resize() {
+    layout();
+}
+
+CureInfoScreen::CureInfoScreen(Config & cfg, Window & win)
+    : InfoNavigationScreen(cfg, win) {
+    widgets.push_back(std::make_unique<FrameDecorator>(
+        win_,
+        std::make_unique<Info>(win_, "Cure information\n\nWIP")
+    ));
+    layout();
+}
+
+void CureInfoScreen::layout() {
+    layoutNavigation();
+    if (widgets.size() > bodyWidgetStart) {
+        widgets[bodyWidgetStart]->setRect(bodyRect());
+    }
+}
+
+void CureInfoScreen::resize() {
+    layout();
+}
+
+CountryScreen::CountryScreen(Config & cfg, Window & win)
+    : InfoNavigationScreen(cfg, win) {
+    auto menu = std::make_unique<Menu>(win_);
+    countryMenu_ = menu.get();
+    for (std::size_t i = 0; i < lowMapCountries.size(); i++) {
+        menu->addButton(lowMapCountries[i], []() -> request::UIRequest {
+            return request::None{};
+        });
+    }
+
+    widgets.push_back(std::make_unique<LabelDecorator>(
+        win_,
+        std::make_unique<FrameDecorator>(win_, std::move(menu)),
+        "Countries"
+    ));
+
+    auto info = std::make_unique<Info>(win_, "");
+    countryInfo_ = info.get();
+    widgets.push_back(std::make_unique<LabelDecorator>(
+        win_,
+        std::make_unique<FrameDecorator>(win_, std::move(info)),
+        "Description"
+    ));
+
+    updateSelectedCountryInfo();
+    layout();
+}
+
+void CountryScreen::layout() {
+    layoutNavigation();
+    if (widgets.size() <= bodyWidgetStart + 1) return;
+
+    const Rect body = bodyRect();
+    const int gap = 1;
+    const int menuWidth = std::min(36, std::max(24, body.width / 3));
+    const int infoX = body.x + menuWidth + gap;
+    const int infoWidth = std::max(1, body.x + body.width - infoX);
+
+    widgets[bodyWidgetStart]->setRect({
+        body.y + 1,
+        body.x,
+        std::max(1, body.height - 1),
+        menuWidth - 1
+    });
+    widgets[bodyWidgetStart + 1]->setRect({
+        body.y + 1,
+        infoX,
+        std::max(1, body.height - 1),
+        infoWidth
+    });
+}
+
+void CountryScreen::updateSelectedCountryInfo() {
+    if (countryMenu_ == nullptr || countryInfo_ == nullptr) {
+        return;
+    }
+
+    const std::size_t index = std::min(countryMenu_->selectedIndex(), lowMapCountries.size() - 1);
+    countryInfo_->changeText(std::string(lowMapCountries[index]) + "\n\nCountry information\n\nWIP");
+}
+
+void CountryScreen::afterHandledInput() {
+    updateSelectedCountryInfo();
+}
+
+void CountryScreen::resize() {
+    layout();
+}
+
+NewsScreen::NewsScreen(Config & cfg, Window & win)
+    : InfoNavigationScreen(cfg, win) {
+    layout();
+}
+
+void NewsScreen::layout() {
+    layoutNavigation();
+}
+
+void NewsScreen::resize() {
+    layout();
 }
 
 

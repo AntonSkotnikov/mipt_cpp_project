@@ -554,15 +554,15 @@ void Menu::setFocus(bool value) {
 
 void Menu::draw() {
     const std::size_t count = selectableCount();
+    const std::size_t lastVisibleIndex = std::min(buttons_.size(), firstVisibleIndex_ + count);
 
-    for (std::size_t i = 0; i < count; i++) {
+    for (std::size_t i = firstVisibleIndex_; i < lastVisibleIndex; i++) {
         buttons_[i]->draw();
     }
 }
 
 InputResult Menu::handleInput(int key) {
-    const std::size_t count = selectableCount();
-    if (count == 0) {
+    if (buttons_.empty()) {
         return {};
     }
 
@@ -573,7 +573,7 @@ InputResult Menu::handleInput(int key) {
             return {true, request::None{}};
 
         case KEY_DOWN:
-            if (selectedIndex_ == count - 1) return {false, request::None{}};
+            if (selectedIndex_ == buttons_.size() - 1) return {false, request::None{}};
             select(selectedIndex_ + 1);
             return {true, request::None{}};
 
@@ -587,6 +587,7 @@ InputResult Menu::handleInput(int key) {
 void Menu::layoutButtons() {
     if (buttons_.empty()) {
         selectedIndex_ = 0;
+        firstVisibleIndex_ = 0;
         return;
     }
 
@@ -596,17 +597,30 @@ void Menu::layoutButtons() {
             button->setFocus(false);
         }
         selectedIndex_ = 0;
+        firstVisibleIndex_ = 0;
         return;
     }
 
     const int buttonWidth = std::max(1, rect_.width);
+    selectedIndex_ = std::min(selectedIndex_, buttons_.size() - 1);
 
-    for (std::size_t i = 0; i < visibleButtons; i++) {
-        buttons_[i]->setRect({rect_.y + static_cast<int>(i), rect_.x, 1, buttonWidth});
+    if (selectedIndex_ < firstVisibleIndex_) {
+        firstVisibleIndex_ = selectedIndex_;
+    } else if (selectedIndex_ >= firstVisibleIndex_ + visibleButtons) {
+        firstVisibleIndex_ = selectedIndex_ - visibleButtons + 1;
     }
 
-    selectedIndex_ = std::min(selectedIndex_, visibleButtons - 1);
-    select(selectedIndex_);
+    const std::size_t maxFirstVisibleIndex = buttons_.size() - visibleButtons;
+    firstVisibleIndex_ = std::min(firstVisibleIndex_, maxFirstVisibleIndex);
+
+    for (std::size_t i = 0; i < visibleButtons; i++) {
+        const std::size_t buttonIndex = firstVisibleIndex_ + i;
+        buttons_[buttonIndex]->setRect({rect_.y + static_cast<int>(i), rect_.x, 1, buttonWidth});
+    }
+
+    for (std::size_t i = 0; i < buttons_.size(); i++) {
+        buttons_[i]->setFocus(focused_ && i == selectedIndex_);
+    }
 }
 
 std::size_t Menu::selectableCount() const {
@@ -618,20 +632,17 @@ std::size_t Menu::selectableCount() const {
 }
 
 void Menu::select(std::size_t index) {
-    const std::size_t count = selectableCount();
-    if (count == 0) {
+    if (buttons_.empty() || selectableCount() == 0) {
         selectedIndex_ = 0;
+        firstVisibleIndex_ = 0;
         for (auto & button : buttons_) {
             button->setFocus(false);
         }
         return;
     }
 
-    selectedIndex_ = std::min(index, count - 1);
-
-    for (std::size_t i = 0; i < buttons_.size(); i++) {
-        buttons_[i]->setFocus(focused_ && i == selectedIndex_);
-    }
+    selectedIndex_ = std::min(index, buttons_.size() - 1);
+    layoutButtons();
 }
 
 TabBar::TabBar(Window & win) : Widget(win) {}

@@ -114,71 +114,57 @@ private:
     void updateSelectedCountryInfo();
 };
 
-class InfoScreen final : public Screen {
+class InfoNavigationScreen : public Screen {
 public:
-    InfoScreen(Config & cfg, Window & win);
+    InfoNavigationScreen(Config & cfg, Window & win);
 
     request::UIRequest handleInput(int key) override;
+    void resize() override;
+protected:
+    static constexpr std::size_t bodyWidgetStart = 4;
+
+    void layoutNavigation();
+    Rect bodyRect() const;
+    virtual void layoutBody() {}
+    virtual void afterHandledInput() {}
+};
+
+class PathogenInfoScreen final : public InfoNavigationScreen {
+public:
+    PathogenInfoScreen(Config & cfg, Window & win);
+
     void resize() override;
 private:
     void layout();
 };
 
-class TransmissionScreen final : public Screen {
+class CureInfoScreen final : public InfoNavigationScreen {
 public:
-    TransmissionScreen(Config & cfg, Window & win);
+    CureInfoScreen(Config & cfg, Window & win);
 
-    request::UIRequest handleInput(int key) override;
     void resize() override;
 private:
     void layout();
 };
 
-class ClinicScreen final : public Screen {
+class CountryScreen final : public InfoNavigationScreen {
 public:
-    ClinicScreen(Config & cfg, Window & win);
+    CountryScreen(Config & cfg, Window & win);
 
-    request::UIRequest handleInput(int key) override;
     void resize() override;
 private:
+    Menu * countryMenu_ = nullptr;
+    Info * countryInfo_ = nullptr;
+
     void layout();
+    void updateSelectedCountryInfo();
+    void afterHandledInput() override;
 };
 
-class AbilitiesScreen final : public Screen {
-public:
-    AbilitiesScreen(Config & cfg, Window & win);
-
-    request::UIRequest handleInput(int key) override;
-    void resize() override;
-private:
-    void layout();
-};
-
-class WorldScreen final : public Screen {
-public:
-    WorldScreen(Config & cfg, Window & win);
-
-    request::UIRequest handleInput(int key) override;
-    void resize() override;
-private:
-    void layout();
-};
-
-class CureScreen final : public Screen {
-public:
-    CureScreen(Config & cfg, Window & win);
-
-    request::UIRequest handleInput(int key) override;
-    void resize() override;
-private:
-    void layout();
-};
-
-class NewsScreen final : public Screen {
+class NewsScreen final : public InfoNavigationScreen {
 public:
     NewsScreen(Config & cfg, Window & win);
 
-    request::UIRequest handleInput(int key) override;
     void resize() override;
 private:
     void layout();
