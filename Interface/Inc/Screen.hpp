@@ -3,6 +3,7 @@
 #include "Settings.hpp"
 #include "UIRequest.hpp"
 #include "UI_ClientAPI.hpp"
+#include "Upgrade.hpp"
 #include "Window.hpp"
 #include "Widget.hpp"
 #include <cstddef>
@@ -165,6 +166,28 @@ public:
     void resize() override;
 private:
     void layout();
+};
+
+class UpgradeScreen final : public Screen {
+public:
+    UpgradeScreen(Config & cfg, Window & win, UpgradeCategory category);
+
+    request::UIRequest handleInput(int key) override;
+    void resize() override;
+private:
+    static constexpr std::size_t tabCount_ = 3;
+    static constexpr std::size_t listIndex_ = tabCount_;
+    static constexpr std::size_t descriptionIndex_ = tabCount_ + 1;
+
+    UpgradeCategory category_;
+    UpgradeList * upgradeList_ = nullptr;
+    Info * description_ = nullptr;
+
+    void layout();
+    void updateDescription();
+    void focusTab(std::size_t tabIndex);
+    void focusNextTab();
+    void focusPrevTab();
 };
 
 }

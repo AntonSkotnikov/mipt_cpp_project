@@ -1,5 +1,6 @@
 #include "Widget.hpp"
 #include "UIRequest.hpp"
+#include "Upgrade.hpp"
 #include "Window.hpp"
 #include "utilities.hpp"
 #include <algorithm>
@@ -18,7 +19,6 @@ namespace plague::ui {
 namespace {
 
 constexpr short selectedCountryColorPair = 1;
-
 bool isBackspaceKey(int key) {
     return key == KEY_BACKSPACE || key == 127 || key == '\b';
 }
@@ -636,6 +636,130 @@ void Menu::select(std::size_t index) {
 
     selectedIndex_ = std::min(index, buttons_.size() - 1);
     layoutButtons();
+}
+
+UpgradeList::UpgradeList(Window & win) : Widget(win) {}
+
+void UpgradeList::setItems(std::vector<UpgradeListItem> items) {
+    items_ = std::move(items);
+    selectedIndex_ = 0;
+    firstVisibleIndex_ = 0;
+    select(selectedIndex_);
+}
+
+void UpgradeList::setRect(Rect rect) {
+    Widget::setRect(rect);
+    select(selectedIndex_);
+}
+
+void UpgradeList::setFocus(bool value) {
+    Widget::setFocus(value);
+}
+
+void UpgradeList::draw() {
+    if (rect_.height <= 0 || rect_.width <= 0 || items_.empty()) {
+        return;
+    }
+
+    const std::size_t count = selectableCount();
+    const std::size_t lastVisibleIndex = std::min(items_.size(), firstVisibleIndex_ + count);
+
+    for (std::size_t i = firstVisibleIndex_; i < lastVisibleIndex; i++) {
+        const UpgradeListItem & item = items_[i];
+        std::string suffix = " (" + std::to_string(item.upgrade.cost) + ")";
+        if (item.purchased) {
+            suffix = " [bought]";
+        }
+
+        std::string line = clipped(item.upgrade.title + suffix, rect_.width);
+        line += repeat(' ', rect_.width - static_cast<int>(line.size()));
+
+        const bool selected = focused_ && i == selectedIndex_;
+        const bool available = item.available || item.purchased;
+
+        if (selected) {
+            if (has_colors()) {
+                win_.attrOn(COLOR_PAIR(selectedCountryColorPair) | A_BOLD);
+            } else {
+                win_.attrOn(A_REVERSE);
+            }
+        } else if (!available) {
+            win_.attrOn(A_DIM);
+        }
+
+        win_.print(rect_.y + static_cast<int>(i - firstVisibleIndex_), rect_.x, line);
+
+        if (selected) {
+            if (has_colors()) {
+                win_.attrOff(COLOR_PAIR(selectedCountryColorPair) | A_BOLD);
+            } else {
+                win_.attrOff(A_REVERSE);
+            }
+        } else if (!available) {
+            win_.attrOff(A_DIM);
+        }
+    }
+}
+
+InputResult UpgradeList::handleInput(int key) {
+    if (items_.empty()) {
+        return {};
+    }
+
+    switch (key) {
+        case KEY_UP:
+            if (selectedIndex_ == 0) return {false, request::None{}};
+            select(selectedIndex_ - 1);
+            return {true, request::None{}};
+
+        case KEY_DOWN:
+            if (selectedIndex_ == items_.size() - 1) return {false, request::None{}};
+            select(selectedIndex_ + 1);
+            return {true, request::None{}};
+
+        case KEY_ENTER:
+        case '\n':
+        case '\r':
+            return {true, request::None{}};
+    }
+
+    return {};
+}
+
+std::size_t UpgradeList::selectableCount() const {
+    if (rect_.height <= 0) {
+        return 0;
+    }
+
+    return std::min(static_cast<std::size_t>(rect_.height), items_.size());
+}
+
+void UpgradeList::select(std::size_t index) {
+    if (items_.empty() || selectableCount() == 0) {
+        selectedIndex_ = 0;
+        firstVisibleIndex_ = 0;
+        return;
+    }
+
+    selectedIndex_ = std::min(index, items_.size() - 1);
+
+    const std::size_t visibleItems = selectableCount();
+    if (selectedIndex_ < firstVisibleIndex_) {
+        firstVisibleIndex_ = selectedIndex_;
+    } else if (selectedIndex_ >= firstVisibleIndex_ + visibleItems) {
+        firstVisibleIndex_ = selectedIndex_ - visibleItems + 1;
+    }
+
+    const std::size_t maxFirstVisibleIndex = items_.size() - visibleItems;
+    firstVisibleIndex_ = std::min(firstVisibleIndex_, maxFirstVisibleIndex);
+}
+
+const UpgradeListItem * UpgradeList::selectedItem() const {
+    if (selectedIndex_ >= items_.size()) {
+        return nullptr;
+    }
+
+    return &items_[selectedIndex_];
 }
 
 TabBar::TabBar(Window & win) : Widget(win) {}
