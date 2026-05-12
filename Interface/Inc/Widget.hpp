@@ -1,6 +1,7 @@
 #pragma once
 
 #include "UIRequest.hpp"
+#include "Upgrade.hpp"
 #include "Window.hpp"
 #include <cstddef>
 #include <functional>
@@ -197,6 +198,33 @@ public:
     InputResult handleInput(int key) override;
     bool focusable() const override { return !buttons_.empty(); }
     std::size_t selectedIndex() const { return selectedIndex_; }
+};
+
+struct UpgradeListItem {
+    UpgradeDefinition upgrade;
+    bool available = false;
+    bool purchased = false;
+};
+
+class UpgradeList final : public Widget {
+private:
+    std::vector<UpgradeListItem> items_;
+    std::size_t selectedIndex_ = 0;
+    std::size_t firstVisibleIndex_ = 0;
+
+    std::size_t selectableCount() const;
+    void select(std::size_t index);
+public:
+    explicit UpgradeList(Window & win);
+
+    void setItems(std::vector<UpgradeListItem> items);
+    void setRect(Rect rect) override;
+    void setFocus(bool value) override;
+    void draw() override;
+    InputResult handleInput(int key) override;
+    bool focusable() const override { return !items_.empty(); }
+    std::size_t selectedIndex() const { return selectedIndex_; }
+    const UpgradeListItem * selectedItem() const;
 };
 
 class TabBar final : public Widget {

@@ -19,6 +19,9 @@ public:
     GameScreen game_;
 
     PathogenInfoScreen pathogen_;
+    UpgradeScreen transmission_;
+    UpgradeScreen clinic_;
+    UpgradeScreen abilities_;
     CureInfoScreen cure_;
     CountryScreen country_;
     NewsScreen news_;

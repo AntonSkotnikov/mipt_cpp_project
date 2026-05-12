@@ -16,14 +16,12 @@ Screen * screenById(ScreenManager & manager, ScreenIds id) {
         case ScreenIds::Settings:  return &manager.mainMenu_;
         case ScreenIds::Game:      return &manager.game_;
         case ScreenIds::Info:      return &manager.pathogen_;
+        case ScreenIds::Transmission: return &manager.transmission_;
+        case ScreenIds::Clinic:    return &manager.clinic_;
+        case ScreenIds::Abilities: return &manager.abilities_;
         case ScreenIds::Cure:      return &manager.cure_;
         case ScreenIds::World:     return &manager.country_;
         case ScreenIds::News:      return &manager.news_;
-
-        case ScreenIds::Transmission:
-        case ScreenIds::Clinic:
-        case ScreenIds::Abilities:
-            break;
     }
 
     return manager.curScreen;
@@ -39,6 +37,9 @@ ScreenManager::ScreenManager(Config & cfg) : cfg_(cfg),
                                              choosingSide_(cfg, mainWin_),
                                              game_{cfg, mainWin_},
                                              pathogen_{cfg, mainWin_},
+                                             transmission_{cfg, mainWin_, UpgradeCategory::Transmission},
+                                             clinic_{cfg, mainWin_, UpgradeCategory::Clinic},
+                                             abilities_{cfg, mainWin_, UpgradeCategory::Abilities},
                                              cure_{cfg, mainWin_},
                                              country_{cfg, mainWin_},
                                              news_{cfg, mainWin_},
@@ -57,6 +58,9 @@ void ScreenManager::resize() {
     choosingSide_.resize();
     game_.resize();
     pathogen_.resize();
+    transmission_.resize();
+    clinic_.resize();
+    abilities_.resize();
     cure_.resize();
     country_.resize();
     news_.resize();

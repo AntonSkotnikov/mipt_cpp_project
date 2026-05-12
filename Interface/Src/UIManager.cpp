@@ -12,8 +12,6 @@
 
 namespace plague::ui {
 
-namespace {
-
 Resolutions chooseResolution(int terminalHeight, int terminalWidth) {
     const TerminalProfile high = terminalProfiles.at(Resolutions::High);
     const TerminalProfile medium = terminalProfiles.at(Resolutions::Medium);
@@ -39,6 +37,9 @@ void updateTerminalConfig(Config & cfg, int terminalHeight, int terminalWidth) {
 void selectGameScreen(ScreenManager & manager, ScreenIds id) {
     switch (id) {
         case ScreenIds::Info:         manager.curScreen = &manager.pathogen_; break;
+        case ScreenIds::Transmission: manager.curScreen = &manager.transmission_; break;
+        case ScreenIds::Clinic:       manager.curScreen = &manager.clinic_; break;
+        case ScreenIds::Abilities:    manager.curScreen = &manager.abilities_; break;
         case ScreenIds::Cure:         manager.curScreen = &manager.cure_; break;
         case ScreenIds::World:        manager.curScreen = &manager.country_; break;
         case ScreenIds::News:         manager.curScreen = &manager.news_; break;
@@ -52,7 +53,7 @@ void selectGameScreen(ScreenManager & manager, ScreenIds id) {
 bool applyGameRequest(Config & cfg, ScreenManager & manager, request::Game request) {
     switch (request) {
         case request::Game::Upgrade:
-            cfg.id = ScreenIds::Info;
+            cfg.id = ScreenIds::Transmission;
             break;
         case request::Game::Info:
             cfg.id = ScreenIds::Info;
@@ -126,8 +127,6 @@ void enforceSmallTerminalScreen(const Config & cfg, ScreenManager & manager) {
     }
 }
 
-}
-
 UIManager::UIManager() {
     const char * term = std::getenv("TERM");
     if (term == nullptr || std::string_view(term) == "dumb") {
@@ -175,7 +174,7 @@ request::UIRequest UIManager::loop(GameSnapshot snap) {
     selectScreenForSituation(cfg_, *man_, snap_);
 
 #ifdef DEBUGGAME
-    man_->curScreen = &man_->game_;
+    man_->curScreen = &man_->transmission_;
 #endif
 
     enforceSmallTerminalScreen(cfg_, *man_);
