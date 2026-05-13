@@ -1,19 +1,85 @@
 #include "PlagueServer.hpp"
 
+#include "LobbyManager.hpp"
+
+#include <algorithm>
 #include <arpa/inet.h>
 #include <cerrno>
+#include <cctype>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <netinet/in.h>
+#include <optional>
 #include <sys/socket.h>
 #include <thread>
 #include <unistd.h>
 
 namespace plague {
 
+namespace {
+
+std::string toLower(std::string text) {
+    std::transform(text.begin(), text.end(), text.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    return text;
+}
+
+bool contains(const std::string& text, const char* token) {
+    return text.find(token) != std::string::npos;
+}
+
+std::optional<std::string> payloadField(const std::string& payload, const std::string& key) {
+    const std::string lowerPayload = toLower(payload);
+    const std::string lowerKey = toLower(key);
+    std::size_t pos = lowerPayload.find(lowerKey);
+    if (pos == std::string::npos) {
+        return std::nullopt;
+    }
+
+    pos = lowerPayload.find('=', pos + lowerKey.size());
+    if (pos == std::string::npos) {
+        return std::nullopt;
+    }
+
+    const std::size_t valueBegin = pos + 1;
+    std::size_t valueEnd = payload.find(';', valueBegin);
+    if (valueEnd == std::string::npos) {
+        valueEnd = payload.size();
+    }
+
+    return payload.substr(valueBegin, valueEnd - valueBegin);
+}
+
+std::string payloadAction(const std::string& payload) {
+    if (const auto action = payloadField(payload, "action")) {
+        return toLower(*action);
+    }
+    return {};
+}
+
+PlayerSubtype subtypeFromPayload(const std::string& payload, PlayerRole fallbackRole) {
+    const std::string lower = toLower(payload);
+    if (contains(lower, "virus") || fallbackRole == PlayerRole::Pathogen) {
+        return PathogenSubtype::Virus;
+    }
+    return HumanitySubtype::ResearchInstitute;
+}
+
+ServerResponse makeResponse(const ClientRequest& request, const LobbyActionResult& result) {
+    ServerResponse response;
+    response.request_id = request.request_id;
+    response.success = result.success;
+    response.payload = result.payload;
+    response.error_message = result.errorMessage;
+    return response;
+}
+
+}  // namespace
+
 PlagueServer::PlagueServer(const std::string& ip, int port)
-    : ip_(ip), port_(port) {}
+    : ip_(ip), port_(port), lobby_(std::make_unique<LobbyManager>()) {}
 
 PlagueServer::~PlagueServer() {
     if (server_socket_ >= 0) {
@@ -99,12 +165,14 @@ void PlagueServer::handleClient(int client_socket) {
             }
 
             if (!line.empty() && !processInput(session, line)) {
+                lobby_->removePlayer(session);
                 close(client_socket);
                 return;
             }
         }
     }
 
+    lobby_->removePlayer(session);
     close(client_socket);
 }
 
@@ -118,40 +186,62 @@ bool PlagueServer::processInput(ClientSession& session, const std::string& line)
     ServerResponse response;
     response.request_id = request->request_id;
     response.success = true;
+    session.lastRequestId = request->request_id;
+
+    const std::string action = payloadAction(request->payload);
 
     switch (request->command) {
-    case ClientCommand::Connect:
-        response.payload = R"({"screen":"ChoosingSide"})";
-        break;
-
-    case ClientCommand::Disconnect:
-        response.payload = "disconnected";
-        return sendResponse(session.socket_fd, response);
-
-    case ClientCommand::ChooseHumanity:
-        session.role = PlayerRole::Humanity;
-        response.payload = R"({"role":"humanity","screen":"Game","day":1,"points":100,"news":[]})";
-        break;
-
-    case ClientCommand::ChoosePathogen:
-        session.role = PlayerRole::Pathogen;
-        response.payload = R"({"role":"pathogen","screen":"Game","day":1,"points":100,"news":[]})";
-        break;
-
-    case ClientCommand::Ping:
-        response.payload = "pong";
+    case ClientCommand::Connect: {
+        response = makeResponse(*request, lobby_->addPlayer(session));
         break;
     }
 
-    return sendResponse(session.socket_fd, response);
+    case ClientCommand::Disconnect:
+        response.payload = "disconnected";
+        sendResponse(session, response);
+        return false;
+
+    case ClientCommand::ChooseHumanity:
+    case ClientCommand::ChoosePathogen:
+        // Existing Common commands are reused as the Ready request because Common cannot be changed yet.
+        if (action == "ready" || request->payload.empty()) {
+            response = makeResponse(*request, lobby_->toggleReady(session));
+        } else if (action == "selectsubtype") {
+            response = makeResponse(*request, lobby_->updateSubtype(
+                session,
+                subtypeFromPayload(request->payload, session.role)));
+        } else {
+            response.success = false;
+            response.error_message = "Unsupported choosing-side action";
+            response.payload = R"({"screen":"ChoosingSide","event":"UnsupportedAction"})";
+        }
+        break;
+
+    case ClientCommand::Ping:
+        // SelectSubtype and ChangeSide are tunneled through Ping until Common gets dedicated commands.
+        if (action == "selectsubtype") {
+            response = makeResponse(*request, lobby_->updateSubtype(
+                session,
+                subtypeFromPayload(request->payload, session.role)));
+        } else if (action == "changeside") {
+            response = makeResponse(*request, lobby_->requestSideChange(session));
+        } else {
+            response.payload = "pong";
+        }
+        break;
+    }
+
+    return sendResponse(session, response);
 }
 
-bool PlagueServer::sendResponse(int client_socket, const ServerResponse& response) {
+bool PlagueServer::sendResponse(ClientSession& session, const ServerResponse& response) {
     const std::string wire = serializeServerResponse(response);
     std::size_t sent_total = 0;
 
+    std::lock_guard<std::mutex> lock(session.sendMutex);
+
     while (sent_total < wire.size()) {
-        const ssize_t sent_now = ::send(client_socket,
+        const ssize_t sent_now = ::send(session.socket_fd,
                                         wire.data() + sent_total,
                                         wire.size() - sent_total,
                                         0);

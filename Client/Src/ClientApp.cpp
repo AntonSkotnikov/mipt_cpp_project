@@ -172,7 +172,11 @@ void applyChoosingSideSignal(GameState& gameState, const std::string& payload) {
 }
 
 ClientApp::ClientApp(SocketTransport& transport)
-    : transport_(transport), request_handler_(std::make_unique<RequestHandler>(transport)) {}
+    : transport_(transport), request_handler_(std::make_unique<RequestHandler>(transport)) {
+    request_handler_->setUnhandledResponseCallback([this](const ServerResponse& response) {
+        handleServerPacket(response);
+    });
+}
 
 void ClientApp::run() {
     using clock = std::chrono::steady_clock;
@@ -225,6 +229,8 @@ void ClientApp::handleServerPacket(const Packet& packet) {
 
     if (const auto role = parseRoleFromPayload(packet.payload)) {
         applyAssignedRole(game_state_, *role);
+        std::lock_guard<std::mutex> lock(m_stateMutex);
+        m_subtypeSelected = true;
     }
     applyChoosingSideSignal(game_state_, packet.payload);
 

@@ -39,20 +39,23 @@ RequestId RequestHandler::sendRequest(ClientCommand command,
 
 void RequestHandler::handleIncoming(const ServerResponse& response) {
     ResponseCallback callback;
+    UnhandledResponseCallback unhandled_callback;
 
     {
         std::lock_guard<std::mutex> lock(mutex_);
         const auto it = pending_requests_.find(response.request_id);
         if (it == pending_requests_.end()) {
-            return;
+            unhandled_callback = unhandled_response_callback_;
+        } else {
+            callback = std::move(it->second.on_response);
+            pending_requests_.erase(it);
         }
-
-        callback = std::move(it->second.on_response);
-        pending_requests_.erase(it);
     }
 
     if (callback) {
         callback(response);
+    } else if (unhandled_callback) {
+        unhandled_callback(response);
     }
 }
 
@@ -95,6 +98,11 @@ void RequestHandler::cancelRequest(RequestId id) {
 bool RequestHandler::hasPendingRequests() const {
     std::lock_guard<std::mutex> lock(mutex_);
     return !pending_requests_.empty();
+}
+
+void RequestHandler::setUnhandledResponseCallback(UnhandledResponseCallback callback) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    unhandled_response_callback_ = std::move(callback);
 }
 
 void RequestHandler::enqueueOutgoing(RequestId id, ClientCommand command, const std::string& payload) {

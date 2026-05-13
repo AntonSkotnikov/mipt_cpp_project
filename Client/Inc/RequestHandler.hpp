@@ -15,6 +15,7 @@ namespace plague {
 
 using ResponseCallback = std::function<void(const ServerResponse&)>;
 using TimeoutCallback = std::function<void(RequestId)>;
+using UnhandledResponseCallback = std::function<void(const ServerResponse&)>;
 
 struct RequestConfig {
     std::chrono::milliseconds timeout{5000};
@@ -33,6 +34,7 @@ public:
     void update();
     void cancelRequest(RequestId id);
     bool hasPendingRequests() const;
+    void setUnhandledResponseCallback(UnhandledResponseCallback callback);
 
 private:
     struct PendingRequest {
@@ -56,6 +58,7 @@ private:
     RequestId next_request_id_{1};
     std::queue<ClientPackage> outbound_queue_;
     std::unordered_map<RequestId, PendingRequest> pending_requests_;
+    UnhandledResponseCallback unhandled_response_callback_;
     mutable std::mutex mutex_;
 };
 
