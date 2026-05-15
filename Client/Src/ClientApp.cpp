@@ -63,6 +63,56 @@ std::optional<int> parseIntField(const std::string& payload, std::string_view ke
     }
 }
 
+std::optional<bool> parseBoolField(const std::string& payload, std::string_view key) {
+    const std::string lower = toLower(payload);
+    const std::string lowerKey = toLower(std::string(key));
+    const std::string quotedKey = '"' + lowerKey + '"';
+
+    std::size_t pos = lower.find(quotedKey);
+    std::size_t keyEnd = std::string::npos;
+    if (pos == std::string::npos) {
+        for (std::size_t searchFrom = 0; ; searchFrom = pos + lowerKey.size()) {
+            pos = lower.find(lowerKey, searchFrom);
+            if (pos == std::string::npos) {
+                break;
+            }
+
+            const bool startsAtBoundary = pos == 0 ||
+                (!std::isalnum(static_cast<unsigned char>(lower[pos - 1])) && lower[pos - 1] != '_');
+            const std::size_t after = pos + lowerKey.size();
+            const bool endsAtBoundary = after >= lower.size() ||
+                (!std::isalnum(static_cast<unsigned char>(lower[after])) && lower[after] != '_');
+            if (startsAtBoundary && endsAtBoundary) {
+                keyEnd = after;
+                break;
+            }
+        }
+    } else {
+        keyEnd = pos + quotedKey.size();
+    }
+    if (pos == std::string::npos || keyEnd == std::string::npos) {
+        return std::nullopt;
+    }
+
+    pos = lower.find_first_of("=:", keyEnd);
+    if (pos == std::string::npos) {
+        return std::nullopt;
+    }
+
+    pos = lower.find_first_not_of(" \t\r\n\"", pos + 1);
+    if (pos == std::string::npos) {
+        return std::nullopt;
+    }
+
+    if (lower.compare(pos, 4, "true") == 0 || lower[pos] == '1') {
+        return true;
+    }
+    if (lower.compare(pos, 5, "false") == 0 || lower[pos] == '0') {
+        return false;
+    }
+    return std::nullopt;
+}
+
 bool packetShowsChoosingSide(const std::string& payload) {
     const std::string lower = toLower(payload);
     return contains(lower, "choosingside") ||
@@ -154,15 +204,30 @@ void applyChoosingSideSignal(GameState& gameState, const std::string& payload) {
     const std::string lower = toLower(payload);
     GameSnapshot snapshot = gameState.snapshot();
     ChoosingSideState choosing = snapshot.choosingSide;
+    choosing.signal = ChoosingSideSignal::None;
 
-    if (contains(lower, "opponentready") || contains(lower, "opponent_ready")) {
-        choosing.opponentReady = true;
+    if (const auto ready = parseBoolField(payload, "ready")) {
+        choosing.ready = *ready;
+    }
+    if (const auto sideChangeRequested = parseBoolField(payload, "sideChangeRequested")) {
+        choosing.sideChangeRequested = *sideChangeRequested;
+    }
+    if (const auto opponentReady = parseBoolField(payload, "opponentReady")) {
+        choosing.opponentReady = *opponentReady;
+    }
+    if (const auto opponentSideChangeRequested = parseBoolField(payload, "opponentSideChangeRequested")) {
+        choosing.opponentSideChangeRequested = *opponentSideChangeRequested;
+    }
+
+    if (contains(lower, "\"event\":\"opponentready\"") ||
+        contains(lower, "event=opponentready") ||
+        contains(lower, "opponent_ready")) {
         choosing.signal = ChoosingSideSignal::OpponentReady;
     }
-    if (contains(lower, "opponentsidechangerequested") ||
+    if (contains(lower, "\"event\":\"opponentrequestssidechange\"") ||
+        contains(lower, "event=opponentrequestssidechange") ||
         contains(lower, "opponent_side_change") ||
         contains(lower, "opponentrequestssidechange")) {
-        choosing.opponentSideChangeRequested = true;
         choosing.signal = ChoosingSideSignal::OpponentRequestsSideChange;
     }
 

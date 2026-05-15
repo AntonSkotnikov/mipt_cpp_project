@@ -194,6 +194,7 @@ void updatePopulation(World& world) {
 }
 
 // ---------- Симуляция ----------
+#ifdef MATMODEL_STANDALONE
 int main() {
     World world = initializeWorld();
 
@@ -238,3 +239,4 @@ int main() {
 
     return 0;
 }
+#endif

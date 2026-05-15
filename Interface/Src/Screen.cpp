@@ -365,15 +365,15 @@ InputResult Screen::handleFocusedInput(int key) {
 
 MainMenuScreen::MainMenuScreen(Config & cfg, Window & win) : Screen(cfg, win) {
     auto logoWidget = std::make_unique<Info>(win_, R"(
-                ______ _                          _____             
-                | ___ \ |                        |_   _|            
-                | |_/ / | __ _  __ _ _   _  ___    | | _ __   ___   
-                |  __/| |/ _` |/ _` | | | |/ _ \   | || '_ \ / __|  
-                | |   | | (_| | (_| | |_| |  __/  _| || | | | (__ _ 
+                ______ _                          _____
+                | ___ \ |                        |_   _|
+                | |_/ / | __ _  __ _ _   _  ___    | | _ __   ___
+                |  __/| |/ _` |/ _` | | | |/ _ \   | || '_ \ / __|
+                | |   | | (_| | (_| | |_| |  __/  _| || | | | (__ _
                 \_|   |_|\__,_|\__, |\__,_|\___|  \___/_| |_|\___(_)
-                                __/ |                               
+                                __/ |
                                |___/                                )");
-            
+
     auto menuWidget = std::make_unique<Menu>(win_);
 
     menuWidget->addButton("Connect to server", []() -> request::UIRequest {
@@ -394,7 +394,7 @@ MainMenuScreen::MainMenuScreen(Config & cfg, Window & win) : Screen(cfg, win) {
     layout();
 
     focusFirst();
-} 
+}
 
 void MainMenuScreen::layout() {
     const int padding = win_.bordered() ? 2 : 1;
