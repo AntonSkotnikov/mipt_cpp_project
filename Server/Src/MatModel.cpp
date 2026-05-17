@@ -1,3 +1,4 @@
+#include "SimulationTypes.hpp"
 #include <iostream>
 #include <vector>
 #include <string>
@@ -8,190 +9,115 @@
 
 namespace plague {
 
-// ========== ПАРАМЕТРЫ СТРАНЫ ==========
-struct CountryParams {
-    int medicine;           // 1-5: уровень развития медицины
-    int climate;            // 1-5: климат (1=холодный, 5=тропический)
-    int urbanization;       // 1-5: степень урбанизации
-    int governmentReaction; // 1-5: скорость реакции властей
+// ========== РЕАЛИЗАЦИЯ МЕТОДОВ СИМУЛЯЦИОННЫХ ТИПОВ ==========
 
-    // Вычисляемые параметры
-    double getScienceFactor() const {
-        // Количество ученых пропорционально уровню медицины
-        return medicine / 5.0;
+// CountryParams
+double CountryParams::getScienceFactor() const {
+    return medicine / 5.0;
+}
+
+double CountryParams::getVaccineSpeed() const {
+    return 0.5 + (medicine / 5.0) * 0.5;
+}
+
+double CountryParams::getTransportFactor() const {
+    return 0.2 + (urbanization / 5.0) * 0.8;
+}
+
+double CountryParams::getBorderCloseSpeed() const {
+    return governmentReaction / 5.0;
+}
+
+// Population
+Population::Population(double total)
+    : initial(total), susceptible(total), exposed(0),
+      infected(0), recovered(0), dead(0) {}
+
+double Population::alive() const {
+    return susceptible + exposed + infected + recovered;
+}
+
+// Country
+Country::Country() : borderOpenness(1.0), bordersClosed(false) {}
+
+// Virus
+double Virus::getClimateModifier(int climateLevel) const {
+    if (climateLevel < 1 || climateLevel > 5) return 1.0;
+    return climateModifiers[climateLevel - 1];
+}
+
+// Humanity
+double Humanity::getGlobalScientists() const {
+    return scientistCommitment * 10000.0;
+}
+
+double Humanity::getBorderCloseThreshold() const {
+    return 0.3 - awareness * 0.2;
+}
+
+// Vaccine
+Vaccine::Vaccine() : progress(0), spreadRate(0.005), isReady(false), efficacy(0.95) {}
+
+void Vaccine::updateProgress(double delta) {
+    progress += delta;
+    if (progress >= 100.0) {
+        progress = 100.0;
+        isReady = true;
     }
+}
 
-    double getVaccineSpeed() const {
-        // Скорость распространения вакцины зависит от медицины
-        return 0.5 + (medicine / 5.0) * 0.5;
+// CountryConnection
+CountryConnection::CountryConnection(size_t f, size_t t, double volume)
+    : from(f), to(t), transportVolume(volume), isActive(true) {}
+
+// World methods
+int World::getCountryIndex(const std::string& name) const {
+    for (size_t i = 0; i < countries.size(); ++i) {
+        if (countries[i].name == name) return static_cast<int>(i);
     }
+    return -1;
+}
 
-    double getTransportFactor() const {
-        // Количество транспорта зависит от урбанизации
-        return 0.2 + (urbanization / 5.0) * 0.8;
-    }
-
-    double getBorderCloseSpeed() const {
-        // Скорость закрытия границ зависит от реакции властей
-        return governmentReaction / 5.0;
-    }
-};
-
-// ========== НАСЕЛЕНИЕ (SEIR модель) ==========
-struct Population {
-    double initial;         // Стартовое количество
-    double susceptible;     // Восприимчивые (S)
-    double exposed;         // Зараженные но не заразные (E)
-    double infected;        // Зараженные и заразные (I)
-    double recovered;       // Вылеченные/Вакцинированные (R)
-    double dead;            // Умершие (D)
-
-    Population(double total = 0.0)
-        : initial(total), susceptible(total), exposed(0),
-          infected(0), recovered(0), dead(0) {}
-
-    double alive() const {
-        return susceptible + exposed + infected + recovered;
-    }
-};
-
-// ========== СТРАНА ==========
-struct Country {
-    std::string name;
-    CountryParams params;
-    Population pop;
-    double borderOpenness;  // 0.0 = полностью закрыта, 1.0 = полностью открыта
-    bool bordersClosed;     // Флаг полного закрытия границ
-
-    Country() : borderOpenness(1.0), bordersClosed(false) {}
-};
-
-// ========== ВИРУС ==========
-struct Virus {
-    double infectivity;         // Заразность (базовый коэффициент передачи)
-    double lethality;           // Летальность (базовый процент смертности)
-    double vaccineDifficulty;   // Сложность изготовления вакцины (0-1)
-    double incubationPeriod;    // Период инкубации (дни)
-    double infectiousPeriod;    // Период заразности (дни)
-    std::vector<double> climateModifiers; // Модификаторы для разных климатов
-
-    double getClimateModifier(int climateLevel) const {
-        if (climateLevel < 1 || climateLevel > 5) return 1.0;
-        return climateModifiers[climateLevel - 1];
-    }
-};
-
-// ========== ЧЕЛОВЕЧЕСТВО ==========
-struct Humanity {
-    double scientistCommitment;     // Вовлеченность ученых (0-1)
-    double awareness;               // Осведомленность (0-1)
-    double developmentDifficultyMod;// Сложности разработки вакцины
-
-    double getGlobalScientists() const {
-        // Общее количество ученых в мире
-        return scientistCommitment * 10000.0; // условных единиц
-    }
-
-    double getBorderCloseThreshold() const {
-        // Порог осведомленности для закрытия границ
-        return 0.3 - awareness * 0.2; // чем выше осведомленность, тем раньше закрывают
-    }
-};
-
-// ========== ВАКЦИНА ==========
-struct Vaccine {
-    double progress;          // Степень готовности (0-100%)
-    double spreadRate;        // Скорость распространения
-    bool isReady;             // Готова ли к применению
-    double efficacy;          // Эффективность (0-1)
-
-    Vaccine() : progress(0), spreadRate(0.005), isReady(false), efficacy(0.95) {}
-
-    void updateProgress(double delta) {
-        progress += delta;
-        if (progress >= 100.0) {
-            progress = 100.0;
-            isReady = true;
+void World::closeBorder(size_t i, size_t j) {
+    for (auto& conn : connections) {
+        if ((conn.from == i && conn.to == j) ||
+            (conn.from == j && conn.to == i)) {
+            conn.isActive = false;
         }
     }
-};
+    if (i < countries.size()) countries[i].bordersClosed = true;
+    if (j < countries.size()) countries[j].bordersClosed = true;
+}
 
-// ========== СВЯЗЬ МЕЖДУ СТРАНАМИ ==========
-struct CountryConnection {
-    size_t from;              // Индекс страны 1
-    size_t to;                // Индекс страны 2
-    double transportVolume;   // Объем транспорта (людей в день)
-    bool isActive;            // Активна ли связь (не закрыты ли границы)
+void World::closeAllBorders(size_t countryIdx) {
+    if (countryIdx >= countries.size()) return;
+    countries[countryIdx].bordersClosed = true;
+    countries[countryIdx].borderOpenness = 0.0;
 
-    CountryConnection(size_t f, size_t t, double volume)
-        : from(f), to(t), transportVolume(volume), isActive(true) {}
-};
-
-// ========== МИР ==========
-class World {
-public:
-    std::vector<Country> countries;
-    std::vector<CountryConnection> connections;
-    Virus virus;
-    Humanity humanity;
-    Vaccine vaccine;
-
-    // Получить индекс страны по имени
-    int getCountryIndex(const std::string& name) const {
-        for (size_t i = 0; i < countries.size(); ++i) {
-            if (countries[i].name == name) return (int)i;
-        }
-        return -1;
-    }
-
-    // Закрыть границы между двумя странами
-    void closeBorder(size_t i, size_t j) {
-        for (auto& conn : connections) {
-            if ((conn.from == i && conn.to == j) ||
-                (conn.from == j && conn.to == i)) {
-                conn.isActive = false;
-            }
-        }
-        if (i < countries.size()) countries[i].bordersClosed = true;
-        if (j < countries.size()) countries[j].bordersClosed = true;
-    }
-
-    // Закрыть все границы страны
-    void closeAllBorders(size_t countryIdx) {
-        if (countryIdx >= countries.size()) return;
-        countries[countryIdx].bordersClosed = true;
-        countries[countryIdx].borderOpenness = 0.0;
-
-        for (auto& conn : connections) {
-            if (conn.from == countryIdx || conn.to == countryIdx) {
-                conn.isActive = false;
-            }
+    for (auto& conn : connections) {
+        if (conn.from == countryIdx || conn.to == countryIdx) {
+            conn.isActive = false;
         }
     }
+}
 
-    // Проверить и автоматически закрыть границы при высокой осведомленности
-    void checkBorderClosures() {
-        double threshold = humanity.getBorderCloseThreshold();
+void World::checkBorderClosures() {
+    double threshold = humanity.getBorderCloseThreshold();
 
-        for (size_t i = 0; i < countries.size(); ++i) {
-            Country& country = countries[i];
+    for (size_t i = 0; i < countries.size(); ++i) {
+        Country& country = countries[i];
 
-            // Процент зараженных в стране
-            double infectionRate = country.pop.infected / country.pop.initial;
+        double infectionRate = country.pop.infected / country.pop.initial;
+        double globalAwareness = humanity.awareness;
 
-            // Глобальная осведомленность о вирусе
-            double globalAwareness = humanity.awareness;
+        double closeProbability = (infectionRate + globalAwareness) *
+                                 country.params.getBorderCloseSpeed();
 
-            // Вероятность закрытия границ
-            double closeProbability = (infectionRate + globalAwareness) *
-                                     country.params.getBorderCloseSpeed();
-
-            if (closeProbability > threshold && !country.bordersClosed) {
-                closeAllBorders(i);
-            }
+        if (closeProbability > threshold && !country.bordersClosed) {
+            closeAllBorders(i);
         }
     }
-};
+}
 
 // ---------- Инициализация связей (с использованием CountryConnection) ----------
 std::vector<CountryConnection> buildInitialConnections(const std::vector<Country>& countries) {
