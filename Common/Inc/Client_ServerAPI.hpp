@@ -17,6 +17,7 @@ enum class ClientCommand {
     SelectSubtype,
     ChangeSide,
     Ready,
+    SelectCountry,
     Ping
 };
 
@@ -49,6 +50,8 @@ inline const char* clientCommandToString(ClientCommand command) {
         return "ChangeSide";
     case ClientCommand::Ready:
         return "Ready";
+    case ClientCommand::SelectCountry:
+        return "SelectCountry";
     case ClientCommand::Ping:
         return "Ping";
     }
@@ -77,6 +80,9 @@ inline std::optional<ClientCommand> parseClientCommand(std::string_view text) {
     }
     if (text == "Ready") {
         return ClientCommand::Ready;
+    }
+    if (text == "SelectCountry") {
+        return ClientCommand::SelectCountry;
     }
     if (text == "Ping") {
         return ClientCommand::Ping;

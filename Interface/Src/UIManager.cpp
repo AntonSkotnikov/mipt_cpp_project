@@ -114,6 +114,7 @@ void selectScreenForSituation(Config & cfg, ScreenManager & manager, const GameS
                 cfg.id = ScreenIds::Game;
             }
             selectGameScreen(manager, cfg.id);
+            manager.game_.updateSnapshot(snap);
             break;
 
         default:

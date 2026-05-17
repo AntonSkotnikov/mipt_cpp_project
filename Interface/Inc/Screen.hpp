@@ -92,11 +92,18 @@ public:
 
     request::UIRequest handleInput(int key) override;
     void resize() override;
+    void updateSnapshot(const GameSnapshot & snapshot);
 private:
     int indexOfSelectedCountry = -1; // -1 == world
     bool navigatingCountries_ = true;
     bool countryMapsLoaded_ = false;
     Resolutions loadedMapResolution_ = Resolutions::Low;
+    GameSnapshot snapshot_{};
+    VariableInfo * pointsInfo_ = nullptr;
+    VariableInfo * infectedInfo_ = nullptr;
+    VariableInfo * deadInfo_ = nullptr;
+    VariableInfo * cureInfo_ = nullptr;
+    VariableInfo * dayInfo_ = nullptr;
     VariableInfo * selectedCountryInfo_ = nullptr;
     std::vector<DetalizedImage *> countryImages_;
     std::vector<Rect> countryBounds_;

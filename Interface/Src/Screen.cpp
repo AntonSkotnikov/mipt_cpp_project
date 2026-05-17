@@ -9,12 +9,14 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <iterator>
 #include <limits>
 #include <memory>
 #include <ncurses.h>
 #include <string>
+#include <string_view>
 #include <variant>
 
 
@@ -116,6 +118,51 @@ const std::array<UpgradeDefinition, 9> upgradeCatalog = {{
     {"heat_resistance", UpgradeCategory::Abilities, "Heat Resistance", 4, "Improves survival in hot regions.\n\nEffects are not implemented yet.", {}},
     {"drug_resistance", UpgradeCategory::Abilities, "Drug Resistance", 9, "Improves survival in wealthy regions.\n\nRequires Cold Resistance and Heat Resistance.", {"cold_resistance", "heat_resistance"}}
 }};
+
+std::string formatCount(std::uint64_t value) {
+    std::string text = std::to_string(value);
+    for (int pos = static_cast<int>(text.size()) - 3; pos > 0; pos -= 3) {
+        text.insert(static_cast<std::size_t>(pos), " ");
+    }
+    return text;
+}
+
+std::uint64_t populationCount(double value) {
+    return static_cast<std::uint64_t>(std::max(0.0, value));
+}
+
+std::uint64_t countryInfectedCount(const Country & country) {
+    return populationCount(country.pop.exposed + country.pop.infected);
+}
+
+std::uint64_t countryDeadCount(const Country & country) {
+    return populationCount(country.pop.dead);
+}
+
+std::uint64_t totalInfectedCount(const std::vector<Country> & countries) {
+    std::uint64_t total = 0;
+    for (const Country & country : countries) {
+        total += countryInfectedCount(country);
+    }
+    return total;
+}
+
+std::uint64_t totalDeadCount(const std::vector<Country> & countries) {
+    std::uint64_t total = 0;
+    for (const Country & country : countries) {
+        total += countryDeadCount(country);
+    }
+    return total;
+}
+
+const Country * findCountry(const std::vector<Country> & countries, std::string_view name) {
+    const auto it = std::find_if(countries.begin(), countries.end(),
+        [name](const Country & country) {
+            return country.name == name;
+        });
+
+    return it == countries.end() ? nullptr : &*it;
+}
 
 Rect innerRect(Rect outer) {
     return {
@@ -756,20 +803,36 @@ GameScreen::GameScreen(Config & cfg, Window & win) : Screen(cfg, win) {
 
     loadCountryMaps();
 
-    widgets.push_back(std::make_unique<FrameDecorator>(win_, std::make_unique<VariableInfo>(win_, "DNA: 0")));
-    widgets.push_back(std::make_unique<FrameDecorator>(win_, std::make_unique<VariableInfo>(win_, "Ill: 0")));
+    auto pointsInfo = std::make_unique<VariableInfo>(win_, "Points: 0");
+    pointsInfo_ = pointsInfo.get();
+    widgets.push_back(std::make_unique<FrameDecorator>(win_, std::move(pointsInfo)));
+
+    auto infectedInfo = std::make_unique<VariableInfo>(win_, "Infected: 0");
+    infectedInfo_ = infectedInfo.get();
+    widgets.push_back(std::make_unique<FrameDecorator>(win_, std::move(infectedInfo)));
+
     auto selectedCountryInfo = std::make_unique<VariableInfo>(win_, "World overview");
     selectedCountryInfo_ = selectedCountryInfo.get();
     widgets.push_back(std::make_unique<FrameDecorator>(win_, std::move(selectedCountryInfo)));
-    widgets.push_back(std::make_unique<FrameDecorator>(win_, std::make_unique<VariableInfo>(win_, "Dead: 0")));
-    widgets.push_back(std::make_unique<FrameDecorator>(win_, std::make_unique<VariableInfo>(win_, "Cure: 0%")));
+
+    auto deadInfo = std::make_unique<VariableInfo>(win_, "Dead: 0");
+    deadInfo_ = deadInfo.get();
+    widgets.push_back(std::make_unique<FrameDecorator>(win_, std::move(deadInfo)));
+
+    auto cureInfo = std::make_unique<VariableInfo>(win_, "Cure: 0%");
+    cureInfo_ = cureInfo.get();
+    widgets.push_back(std::make_unique<FrameDecorator>(win_, std::move(cureInfo)));
 
     widgets.push_back(std::make_unique<FrameDecorator>(win_, std::make_unique<Button>(win_, "Upgrade", []() ->request::UIRequest {
         return request::Game::Upgrade;
     })));
     auto newsTicker = std::make_unique<Ticker>(win_, 6);
     widgets.push_back(std::make_unique<FrameDecorator>(win_, std::move(newsTicker)));
-    widgets.push_back(std::make_unique<FrameDecorator>(win_, std::make_unique<VariableInfo>(win_, "Day: 0")));
+
+    auto dayInfo = std::make_unique<VariableInfo>(win_, "Day: 0");
+    dayInfo_ = dayInfo.get();
+    widgets.push_back(std::make_unique<FrameDecorator>(win_, std::move(dayInfo)));
+
     widgets.push_back(std::make_unique<FrameDecorator>(win_, std::make_unique<Button>(win_, "World", []() ->request::UIRequest {
         return request::Game::World;
     })));
@@ -834,6 +897,29 @@ void GameScreen::resize() {
     }
 
     layout();
+}
+
+void GameScreen::updateSnapshot(const GameSnapshot & snapshot) {
+    snapshot_ = snapshot;
+
+    if (pointsInfo_ != nullptr) {
+        pointsInfo_->changeLine("Points: " + std::to_string(snapshot_.playerInfo.points));
+    }
+    if (infectedInfo_ != nullptr) {
+        infectedInfo_->changeLine("Infected: " + formatCount(totalInfectedCount(snapshot_.countries)));
+    }
+    if (deadInfo_ != nullptr) {
+        deadInfo_->changeLine("Dead: " + formatCount(totalDeadCount(snapshot_.countries)));
+    }
+    if (cureInfo_ != nullptr) {
+        const int progress = std::clamp(static_cast<int>(snapshot_.cureProgress), 0, 100);
+        cureInfo_->changeLine("Cure: " + std::to_string(progress) + "%");
+    }
+    if (dayInfo_ != nullptr) {
+        dayInfo_->changeLine("Day: " + std::to_string(snapshot_.day));
+    }
+
+    updateSelectedCountryInfo();
 }
 
 void GameScreen::loadCountryMaps() {
@@ -940,8 +1026,17 @@ void GameScreen::updateSelectedCountryInfo() {
         return;
     }
 
+    const std::string_view countryName = lowMapCountries[static_cast<std::size_t>(indexOfSelectedCountry)];
+    const Country * country = findCountry(snapshot_.countries, countryName);
+    if (country == nullptr) {
+        selectedCountryInfo_->changeLine(std::string("Country: ") + std::string(countryName));
+        return;
+    }
+
     selectedCountryInfo_->changeLine(
-        std::string("Country: ") + lowMapCountries[static_cast<std::size_t>(indexOfSelectedCountry)]
+        std::string(countryName) +
+        " I: " + formatCount(countryInfectedCount(*country)) +
+        " D: " + formatCount(countryDeadCount(*country))
     );
 }
 
@@ -977,6 +1072,18 @@ request::UIRequest GameScreen::handleInput(int key) {
         case KEY_BTAB:
         case '\t':
             toggleNavigationMode();
+            return request::None{};
+
+        case KEY_ENTER:
+        case '\n':
+        case '\r':
+            if (navigatingCountries_ &&
+                indexOfSelectedCountry >= 0 &&
+                static_cast<std::size_t>(indexOfSelectedCountry) < lowMapCountries.size()) {
+                return request::SelectCountry{
+                    lowMapCountries[static_cast<std::size_t>(indexOfSelectedCountry)]
+                };
+            }
             return request::None{};
 
         case 'u':

@@ -51,13 +51,18 @@ struct ConnectInfo {
     std::string port;
 };
 
+struct SelectCountry {
+    std::string countryName;
+};
+
 using UIRequest = std::variant<
     None,
     MainMenu,
     Settings,
     ConnectInfo,
     ChoosingSide,
-    Game
+    Game,
+    SelectCountry
 >;
 
 }  // namespace plague::request
