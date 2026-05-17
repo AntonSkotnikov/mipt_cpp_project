@@ -1,12 +1,12 @@
 #include "LobbyManager.hpp"
 
 #include "PlagueServer.hpp"
+#include "logger.hpp"
 
 #include <algorithm>
 #include <chrono>
 #include <cerrno>
 #include <cstring>
-#include <iostream>
 #include <random>
 #include <sstream>
 #include <sys/socket.h>
@@ -65,11 +65,12 @@ bool sendAll(int socketFd, const std::string& wireData) {
                 continue;
             }
 
-            std::cerr << "Lobby send error: " << std::strerror(errno) << '\n';
+            LOG_ERROR("Lobby send error: %s", std::strerror(errno));
             return false;
         }
 
         if (sentNow == 0) {
+            LOG_WARNING("Lobby send returned zero bytes");
             return false;
         }
 
@@ -81,6 +82,7 @@ bool sendAll(int socketFd, const std::string& wireData) {
 
 void sendSessionPacket(ClientSession& session, const std::string& payload) {
     if (!session.connected || session.socket_fd < 0) {
+        LOG_DEBUG("Skipping lobby notification: session is not connected");
         return;
     }
 
@@ -114,11 +116,13 @@ LobbyActionResult LobbyManager::addPlayer(ClientSession& session) {
         // The lobby is intentionally a single 1v1 room for now. The first player gets
         // a random side; the second player receives the remaining side.
         if (containsSession(session)) {
+            LOG_INFO("Player is already connected to lobby: fd=%d", session.socket_fd);
             result.payload = lobbyPayloadFor(session, "AlreadyConnected");
             return result;
         }
 
         if (players_[0] != nullptr && players_[1] != nullptr) {
+            LOG_WARNING("Lobby is full, rejecting player: fd=%d", session.socket_fd);
             result.success = false;
             result.errorMessage = "Lobby is full";
             result.payload = R"({"screen":"MainMenu","error":"Lobby is full"})";
@@ -140,6 +144,9 @@ LobbyActionResult LobbyManager::addPlayer(ClientSession& session) {
             session.hasChosenSubtype = true;
             session.lobbyState = LobbyState::WaitingForSecond;
             players_[0] = &session;
+            LOG_INFO("Player joined lobby as first player: fd=%d role=%s",
+                     session.socket_fd,
+                     roleToJson(session.role));
         } else {
             session.role = oppositeRole(players_[0]->role);
             session.chosenSubtype = defaultSubtypeFor(session.role);
@@ -150,6 +157,9 @@ LobbyActionResult LobbyManager::addPlayer(ClientSession& session) {
             players_[0]->lobbyState = LobbyState::ChoosingSubtype;
             opponent = players_[0];
             opponentPayload = lobbyPayloadFor(*opponent, "OpponentJoined");
+            LOG_INFO("Player joined lobby as second player: fd=%d role=%s",
+                     session.socket_fd,
+                     roleToJson(session.role));
         }
 
         result.payload = lobbyPayloadFor(session, "RoleAssigned");
@@ -173,6 +183,7 @@ LobbyActionResult LobbyManager::updateSubtype(ClientSession& session, PlayerSubt
         // Subtype selection is stored on the server before Ready is accepted, so a client
         // cannot start the game by sending Ready without first confirming its subtype.
         if (!containsSession(session)) {
+            LOG_WARNING("Subtype update rejected: player is not in lobby fd=%d", session.socket_fd);
             result.success = false;
             result.errorMessage = "Player is not in lobby";
             return result;
@@ -182,6 +193,10 @@ LobbyActionResult LobbyManager::updateSubtype(ClientSession& session, PlayerSubt
         session.hasChosenSubtype = true;
         session.isReady = false;
         session.lobbyState = hasTwoPlayers() ? LobbyState::ReadyCheck : LobbyState::WaitingForSecond;
+        LOG_INFO("Player selected subtype: fd=%d role=%s subtype=%s",
+                 session.socket_fd,
+                 roleToJson(session.role),
+                 subtypeToJson(session.chosenSubtype));
 
         result.payload = lobbyPayloadFor(session, "SubtypeSelected");
         opponent = opponentOf(session);
@@ -208,18 +223,21 @@ LobbyActionResult LobbyManager::toggleReady(ClientSession& session) {
         // Ready is a synchronized lobby action: both players must be present, both must
         // have selected a subtype, and only then the manager sends the GameStart packet.
         if (!containsSession(session)) {
+            LOG_WARNING("Ready toggle rejected: player is not in lobby fd=%d", session.socket_fd);
             result.success = false;
             result.errorMessage = "Player is not in lobby";
             return result;
         }
 
         if (!hasTwoPlayers()) {
+            LOG_INFO("Ready toggle delayed: waiting for second player fd=%d", session.socket_fd);
             result.errorMessage = "Waiting for the second player";
             result.payload = lobbyPayloadFor(session, "WaitingForSecond");
             return result;
         }
 
         if (!session.hasChosenSubtype) {
+            LOG_WARNING("Ready toggle rejected: subtype is not selected fd=%d", session.socket_fd);
             result.errorMessage = "Subtype is not selected";
             result.payload = lobbyPayloadFor(session, "SubtypeRequired");
             return result;
@@ -228,8 +246,12 @@ LobbyActionResult LobbyManager::toggleReady(ClientSession& session) {
         session.isReady = !session.isReady;
         session.lobbyState = LobbyState::ReadyCheck;
         shouldStart = bothReady();
+        LOG_INFO("Player ready state changed: fd=%d ready=%d",
+                 session.socket_fd,
+                 session.isReady ? 1 : 0);
 
         if (shouldStart) {
+            LOG_INFO("Both players are ready, starting game");
             startGameLocked(session);
             result.payload = startPayloadFor(session);
         } else {
@@ -267,12 +289,14 @@ LobbyActionResult LobbyManager::requestSideChange(ClientSession& requester) {
         std::lock_guard<std::mutex> lock(mutex_);
 
         if (!containsSession(requester)) {
+            LOG_WARNING("Side-change request rejected: player is not in lobby fd=%d", requester.socket_fd);
             result.success = false;
             result.errorMessage = "Player is not in lobby";
             return result;
         }
 
         if (!hasTwoPlayers()) {
+            LOG_INFO("Side-change request delayed: waiting for second player fd=%d", requester.socket_fd);
             result.errorMessage = "Waiting for the second player";
             result.payload = lobbyPayloadFor(requester, "WaitingForSecond");
             return result;
@@ -284,8 +308,10 @@ LobbyActionResult LobbyManager::requestSideChange(ClientSession& requester) {
         if (opponent != nullptr && opponent->wantsSideChange) {
             swapRolesLocked();
             swapped = true;
+            LOG_INFO("Both players requested side change, roles swapped");
             result.payload = lobbyPayloadFor(requester, "SidesChanged");
         } else {
+            LOG_INFO("Player requested side change: fd=%d", requester.socket_fd);
             result.payload = lobbyPayloadFor(requester, "SideChangeRequested");
         }
 
@@ -316,11 +342,15 @@ void LobbyManager::removePlayer(ClientSession& session) {
             players_[1] = nullptr;
         } else {
             session.connected = false;
+            LOG_DEBUG("Remove ignored: player is not in lobby fd=%d", session.socket_fd);
             return;
         }
 
         wasInGame = session.lobbyState == LobbyState::InGame;
         session.connected = false;
+        LOG_INFO("Player removed from lobby: fd=%d wasInGame=%d",
+                 session.socket_fd,
+                 wasInGame ? 1 : 0);
 
         opponent = players_[0] != nullptr ? players_[0] : players_[1];
         if (opponent != nullptr) {
@@ -331,11 +361,14 @@ void LobbyManager::removePlayer(ClientSession& session) {
     }
 
     if (wasInGame) {
+        LOG_INFO("Stopping game loop because a player disconnected");
         gameLoopRunning_.store(false);
     }
 
     if (opponent != nullptr) {
-        notifySession(*opponent, R"({"screen":"EndScreen","event":"OpponentDisconnected","winner":"none","reason":"opponent_disconnected"})");
+        LOG_INFO("Notifying remaining player about opponent disconnect: fd=%d", opponent->socket_fd);
+        notifySession(*opponent,
+                      R"({"screen":"EndScreen","event":"OpponentDisconnected","winner":"none","reason":"opponent_disconnected"})");
     }
 }
 
@@ -371,6 +404,7 @@ void LobbyManager::swapRolesLocked() {
     }
 
     std::swap(players_[0]->role, players_[1]->role);
+    LOG_INFO("Swapping lobby roles");
     players_[0]->chosenSubtype = defaultSubtypeFor(players_[0]->role);
     players_[1]->chosenSubtype = defaultSubtypeFor(players_[1]->role);
 
@@ -418,7 +452,7 @@ std::string LobbyManager::startPayloadFor(const ClientSession& session) const {
                 << R"({"id":"quarantine_1","category":"Transmission","cost":15})";
     }
 
-    payload << R"(],"news":[]})";
+    payload << R"(]})";
     return payload.str();
 }
 
@@ -430,11 +464,14 @@ std::string LobbyManager::gameStatsPayload(int tick) const {
             << R"(,"infected":)" << (1000 + tick * 137)
             << R"(,"dead":)" << (tick * 13)
             << R"(,"cureProgress":)" << std::min(100, tick * 3)
-            << R"(,"news":[{"level":"RegularNews","text":"Global report updated"}]})";
+            << '}';
     return payload.str();
 }
 
 void LobbyManager::notifySession(ClientSession& session, const std::string& payload) {
+    LOG_DEBUG("Sending lobby notification: fd=%d payload=%s",
+              session.socket_fd,
+              payload.c_str());
     sendSessionPacket(session, payload);
 }
 
@@ -481,6 +518,7 @@ void LobbyManager::startGameLocked(ClientSession& triggeringSession) {
 
     ClientSession* opponent = opponentOf(triggeringSession);
     if (opponent != nullptr) {
+        LOG_DEBUG("Sending game start to opponent: fd=%d", opponent->socket_fd);
         notifySession(*opponent, startPayloadFor(*opponent));
     }
 
@@ -488,10 +526,10 @@ void LobbyManager::startGameLocked(ClientSession& triggeringSession) {
 }
 
 void LobbyManager::gameLoop() {
-    constexpr int kTickCountBeforeStubGameOver = 20;
+    LOG_INFO("Game loop started");
 
-    // This is a placeholder simulation loop. It already exercises the network contract:
-    // periodic events/statistics are pushed to both players until real win conditions arrive.
+    // This placeholder simulation loop exercises the network contract until a real
+    // win condition or a disconnect stops the match.
     for (int tick = 1; gameLoopRunning_.load(); ++tick) {
         std::this_thread::sleep_for(std::chrono::seconds(3));
 
@@ -504,23 +542,20 @@ void LobbyManager::gameLoop() {
         }
 
         if (!stillInGame) {
+            LOG_INFO("Game loop stopping: players are no longer both in game");
             gameLoopRunning_.store(false);
             break;
         }
 
+        LOG_DEBUG("Broadcasting game tick: tick=%d", tick);
         notifyBoth(gameStatsPayload(tick));
-
-        if (tick >= kTickCountBeforeStubGameOver) {
-            notifyBoth(R"({"screen":"EndScreen","event":"GameOver","winner":"none","reason":"stub_tick_limit"})");
-            gameLoopRunning_.store(false);
-            break;
-        }
     }
 }
 
 void LobbyManager::stopGameLoop() {
     gameLoopRunning_.store(false);
     if (gameThread_.joinable()) {
+        LOG_INFO("Joining game loop thread");
         gameThread_.join();
     }
 }

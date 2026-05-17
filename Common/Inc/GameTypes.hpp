@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include <string>
 #include <variant>
 
 namespace plague {
@@ -89,19 +88,6 @@ struct ChoosingSideState {
     bool opponentSideChangeRequested = false;
     bool opponentReady = false;
     ChoosingSideSignal signal = ChoosingSideSignal::None;
-};
-
-enum class ImportanceOfNews {
-    RegularNews,
-    ImportantNews,
-};
-
-struct News {
-    ImportanceOfNews level_;
-    std::string text_;
-
-public:
-    News(ImportanceOfNews level, std::string text) : level_(level), text_(text) {}
 };
 
 }

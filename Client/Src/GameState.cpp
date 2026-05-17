@@ -16,13 +16,7 @@ void GameState::resetForMenu() {
     std::lock_guard<std::mutex> lock(mutex_);
     snapshot_.day = 0;
     snapshot_.playerInfo.points = 0;
-    snapshot_.recentNews.clear();
     snapshot_.choosingSide = ChoosingSideState{};
-}
-
-void GameState::clearNews() {
-    std::lock_guard<std::mutex> lock(mutex_);
-    snapshot_.recentNews.clear();
 }
 
 void GameState::setDay(std::uint16_t day) {
@@ -50,15 +44,6 @@ void GameState::setPlayerPoints(UpgradePointType points) {
 void GameState::setChoosingSideState(const ChoosingSideState& choosingSide) {
     std::lock_guard<std::mutex> lock(mutex_);
     snapshot_.choosingSide = choosingSide;
-}
-
-void GameState::addNews(ImportanceOfNews importance, const std::string& text) {
-    if (text.empty()) {
-        return;
-    }
-
-    std::lock_guard<std::mutex> lock(mutex_);
-    snapshot_.recentNews.emplace_back(importance, text);
 }
 
 GameSnapshot GameState::snapshot() const {

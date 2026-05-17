@@ -1,5 +1,7 @@
 #include "ClientApp.hpp"
 
+#include "logger.hpp"
+
 #include <algorithm>
 #include <chrono>
 #include <cctype>
@@ -122,11 +124,17 @@ bool packetShowsChoosingSide(const std::string& payload) {
 
 bool packetStartsGame(const std::string& payload) {
     const std::string lower = toLower(payload);
-    return contains(lower, "\"screen\":\"game\"") ||
-           contains(lower, "screen=game") ||
+    return contains(lower, "\"event\":\"gamestart\"") ||
+           contains(lower, "event=gamestart") ||
            contains(lower, "gamestart") ||
            contains(lower, "game_start") ||
            (contains(lower, "start") && contains(lower, "game"));
+}
+
+bool packetShowsGame(const std::string& payload) {
+    const std::string lower = toLower(payload);
+    return contains(lower, "\"screen\":\"game\"") ||
+           contains(lower, "screen=game");
 }
 
 bool packetEndsGame(const std::string& payload) {
@@ -159,6 +167,54 @@ const char* subtypeName(const PlayerSubtype& subtype) {
     return "ResearchInstitute";
 }
 
+const char* situationName(GameSituation situation) {
+    switch (situation) {
+    case GameSituation::MainMenu:
+        return "MainMenu";
+    case GameSituation::Settings:
+        return "Settings";
+    case GameSituation::ConnectToServer:
+        return "ConnectToServer";
+    case GameSituation::Exit:
+        return "Exit";
+    case GameSituation::ConnectingToServer:
+        return "ConnectingToServer";
+    case GameSituation::ConnectingToServerFailed:
+        return "ConnectingToServerFailed";
+    case GameSituation::ChoosingSide:
+        return "ChoosingSide";
+    case GameSituation::Game:
+        return "Game";
+    case GameSituation::EndScreen:
+        return "EndScreen";
+    }
+
+    return "Unknown";
+}
+
+const char* flowStateName(ClientFlowState state) {
+    switch (state) {
+    case ClientFlowState::Disconnected:
+        return "Disconnected";
+    case ClientFlowState::Connecting:
+        return "Connecting";
+    case ClientFlowState::WaitingForRole:
+        return "WaitingForRole";
+    case ClientFlowState::ChoosingSubtype:
+        return "ChoosingSubtype";
+    case ClientFlowState::LobbyWaiting:
+        return "LobbyWaiting";
+    case ClientFlowState::ReadyWaitingStart:
+        return "ReadyWaitingStart";
+    case ClientFlowState::GameRunning:
+        return "GameRunning";
+    case ClientFlowState::GameOver:
+        return "GameOver";
+    }
+
+    return "Unknown";
+}
+
 const char* choosingActionName(request::ChoosingSideAction action) {
     switch (action) {
     case request::ChoosingSideAction::SelectSubtype:
@@ -171,11 +227,16 @@ const char* choosingActionName(request::ChoosingSideAction action) {
     return "SelectSubtype";
 }
 
-ClientCommand commandForChoosingAction(request::ChoosingSideAction action, PlayerRole role) {
-    if (action != request::ChoosingSideAction::Ready) {
-        return ClientCommand::Ping;
+ClientCommand commandForChoosingAction(request::ChoosingSideAction action) {
+    switch (action) {
+    case request::ChoosingSideAction::SelectSubtype:
+        return ClientCommand::SelectSubtype;
+    case request::ChoosingSideAction::ChangeSide:
+        return ClientCommand::ChangeSide;
+    case request::ChoosingSideAction::Ready:
+        return ClientCommand::Ready;
     }
-    return role == PlayerRole::Pathogen ? ClientCommand::ChoosePathogen : ClientCommand::ChooseHumanity;
+    return ClientCommand::SelectSubtype;
 }
 
 std::string makeChoosingSidePayload(request::ChoosingSideAction action,
@@ -244,6 +305,8 @@ ClientApp::ClientApp(SocketTransport& transport)
 }
 
 void ClientApp::run() {
+    LOG_INFO("Client event loop started in %s", situationName(game_state_.getSituation()));
+
     using clock = std::chrono::steady_clock;
     constexpr auto frameTime = std::chrono::microseconds(16667);
     auto nextFrame = clock::now();
@@ -264,10 +327,17 @@ void ClientApp::run() {
 }
 
 void ClientApp::setSituation(GameSituation newSituation) {
+    const GameSituation oldSituation = game_state_.getSituation();
+    if (oldSituation != newSituation) {
+        LOG_INFO("Situation changed: %s -> %s",
+                 situationName(oldSituation),
+                 situationName(newSituation));
+    }
     game_state_.setSituation(newSituation);
 }
 
 void ClientApp::resetStateForMenu() {
+    LOG_INFO("Resetting client state and returning to main menu");
     game_state_.resetForMenu();
     std::lock_guard<std::mutex> lock(m_stateMutex);
     m_currentState = ClientFlowState::Disconnected;
@@ -276,6 +346,11 @@ void ClientApp::resetStateForMenu() {
 
 void ClientApp::setFlowState(ClientFlowState newState) {
     std::lock_guard<std::mutex> lock(m_stateMutex);
+    if (m_currentState != newState) {
+        LOG_INFO("Client flow changed: %s -> %s",
+                 flowStateName(m_currentState),
+                 flowStateName(newState));
+    }
     m_currentState = newState;
 }
 
@@ -285,7 +360,16 @@ ClientFlowState ClientApp::getFlowState() const {
 }
 
 void ClientApp::handleServerPacket(const Packet& packet) {
+    LOG_DEBUG("Received server packet: request_id=%u success=%d payload=%s error=%s",
+              packet.request_id,
+              packet.success ? 1 : 0,
+              packet.payload.c_str(),
+              packet.error_message.c_str());
+
     if (!packet.success) {
+        LOG_WARNING("Server rejected request %u: %s",
+                    packet.request_id,
+                    packet.error_message.c_str());
         transport_.disconnect();
         resetStateForMenu();
         setSituation(GameSituation::MainMenu);
@@ -293,6 +377,7 @@ void ClientApp::handleServerPacket(const Packet& packet) {
     }
 
     if (const auto role = parseRoleFromPayload(packet.payload)) {
+        LOG_INFO("Assigned role: %s", roleName(*role));
         applyAssignedRole(game_state_, *role);
         std::lock_guard<std::mutex> lock(m_stateMutex);
         m_subtypeSelected = true;
@@ -300,12 +385,14 @@ void ClientApp::handleServerPacket(const Packet& packet) {
     applyChoosingSideSignal(game_state_, packet.payload);
 
     if (packetEndsGame(packet.payload)) {
+        LOG_INFO("Server ended the game");
         setFlowState(ClientFlowState::GameOver);
         setSituation(GameSituation::EndScreen);
         return;
     }
 
     if (packetStartsGame(packet.payload)) {
+        LOG_INFO("Game start packet received");
         if (const auto day = parseIntField(packet.payload, "day")) {
             game_state_.setDay(static_cast<std::uint16_t>(std::max(0, *day)));
         } else {
@@ -318,6 +405,19 @@ void ClientApp::handleServerPacket(const Packet& packet) {
 
         setFlowState(ClientFlowState::GameRunning);
         setSituation(GameSituation::Game);
+        return;
+    }
+
+    if (packetShowsGame(packet.payload)) {
+        if (const auto day = parseIntField(packet.payload, "day")) {
+            game_state_.setDay(static_cast<std::uint16_t>(std::max(0, *day)));
+        }
+
+        if (const auto points = parseIntField(packet.payload, "points")) {
+            game_state_.setPlayerPoints(static_cast<UpgradePointType>(std::max(0, *points)));
+        }
+
+        LOG_DEBUG("Game update packet received");
         return;
     }
 
@@ -350,13 +450,16 @@ void ClientApp::handleUserAction(const UserAction& request) {
     case GameSituation::MainMenu:
         if (std::holds_alternative<request::MainMenu>(request) &&
             std::get<request::MainMenu>(request) == request::MainMenu::ConnectToServer) {
+            LOG_INFO("Main menu action: connect to server");
             setFlowState(ClientFlowState::Connecting);
             setSituation(GameSituation::ConnectingToServer);
         } else if (std::holds_alternative<request::MainMenu>(request) &&
                    std::get<request::MainMenu>(request) == request::MainMenu::OpenSettings) {
+            LOG_INFO("Main menu action: open settings");
             setSituation(GameSituation::Settings);
         } else if (std::holds_alternative<request::MainMenu>(request) &&
                    std::get<request::MainMenu>(request) == request::MainMenu::Exit) {
+            LOG_INFO("Main menu action: exit client");
             setSituation(GameSituation::Exiting);
             running_ = false;
         }
@@ -365,6 +468,7 @@ void ClientApp::handleUserAction(const UserAction& request) {
     case GameSituation::Settings:
         if (std::holds_alternative<request::Settings>(request) &&
             std::get<request::Settings>(request) == request::Settings::Back) {
+            LOG_INFO("Settings action: back to main menu");
             setSituation(GameSituation::MainMenu);
         }
         break;
@@ -374,6 +478,7 @@ void ClientApp::handleUserAction(const UserAction& request) {
         if (std::holds_alternative<request::ConnectInfo>(request) &&
             std::get<request::ConnectInfo>(request).id == request::Connect::Connect) {
             if (request_handler_->hasPendingRequests()) {
+                LOG_DEBUG("Connect action ignored because a request is already pending");
                 break;
             }
 
@@ -386,27 +491,32 @@ void ClientApp::handleUserAction(const UserAction& request) {
                 } catch (...) {}
             }
 
+            LOG_INFO("Connect form submitted: host=%s port=%d", host.c_str(), port);
+
             if (!transport_.isConnected() && !transport_.connectToServer(host.c_str(), port)) {
+                LOG_WARNING("Connection attempt failed: host=%s port=%d", host.c_str(), port);
                 resetStateForMenu();
                 setSituation(GameSituation::MainMenu);
                 break;
             }
 
+            LOG_INFO("Connection established, requesting lobby role");
             setFlowState(ClientFlowState::WaitingForRole);
             request_handler_->sendRequest(
                 ClientCommand::Connect,
                 "",
                 [this](const ServerResponse& response) {
-                    game_state_.clearNews();
                     handleServerPacket(response);
                 },
                 [this](RequestId) {
+                    LOG_WARNING("Connect request timed out");
                     transport_.disconnect();
                     resetStateForMenu();
                     setSituation(GameSituation::MainMenu);
                 });
         } else if (std::holds_alternative<request::ConnectInfo>(request) &&
                    std::get<request::ConnectInfo>(request).id == request::Connect::Back) {
+            LOG_INFO("Connect screen action: back to main menu");
             setSituation(GameSituation::MainMenu);
         }
         break;
@@ -418,6 +528,7 @@ void ClientApp::handleUserAction(const UserAction& request) {
 
     case GameSituation::ChoosingSide:
         if (request_handler_->hasPendingRequests()) {
+            LOG_DEBUG("Choosing-side action ignored because a request is already pending");
             break;
         }
 
@@ -437,6 +548,9 @@ void ClientApp::handleUserAction(const UserAction& request) {
                 }
 
                 subtype = subtypeForIndex(role, choosingRequest.subtypeIndex);
+                LOG_INFO("Choosing-side action: select subtype=%s role=%s",
+                         subtypeName(subtype),
+                         roleName(role));
                 InfoAboutPlayer playerInfo = snapshot.playerInfo;
                 playerInfo.subtype = subtype;
                 choosingState.selectedSubtype = subtype;
@@ -461,6 +575,7 @@ void ClientApp::handleUserAction(const UserAction& request) {
                 }
 
                 choosingState.sideChangeRequested = true;
+                LOG_INFO("Choosing-side action: request side change");
                 choosingState.signal = ChoosingSideSignal::None;
                 game_state_.setChoosingSideState(choosingState);
                 setFlowState(ClientFlowState::LobbyWaiting);
@@ -474,12 +589,13 @@ void ClientApp::handleUserAction(const UserAction& request) {
                 }
 
                 if (!subtypeSelected) {
-                    game_state_.addNews(ImportanceOfNews::RegularNews, "Choose a subtype before pressing Ready.");
+                    LOG_WARNING("Ready action rejected locally: subtype is not selected");
                     shouldSendRequest = false;
                     break;
                 }
 
                 choosingState.ready = true;
+                LOG_INFO("Choosing-side action: ready");
                 choosingState.signal = ChoosingSideSignal::LocalReady;
                 game_state_.setChoosingSideState(choosingState);
                 setFlowState(ClientFlowState::ReadyWaitingStart);
@@ -492,20 +608,21 @@ void ClientApp::handleUserAction(const UserAction& request) {
             }
 
             request_handler_->sendRequest(
-                commandForChoosingAction(choosingRequest.action, role),
+                commandForChoosingAction(choosingRequest.action),
                 makeChoosingSidePayload(choosingRequest.action, role, subtype),
                 [this](const ServerResponse& response) {
                     handleServerPacket(response);
                 },
                 [this](RequestId) {
+                    LOG_WARNING("Lobby action request timed out");
                     if (getFlowState() == ClientFlowState::ReadyWaitingStart) {
                         setFlowState(ClientFlowState::LobbyWaiting);
                     }
-                    game_state_.addNews(ImportanceOfNews::RegularNews, "Server did not confirm lobby action.");
                 });
         } else if (std::holds_alternative<request::MainMenu>(request) &&
                    std::get<request::MainMenu>(request) == request::MainMenu::Exit) {
             transport_.disconnect();
+            LOG_INFO("Choosing-side action: exit to main menu");
             resetStateForMenu();
             setSituation(GameSituation::MainMenu);
         }
@@ -514,7 +631,7 @@ void ClientApp::handleUserAction(const UserAction& request) {
     case GameSituation::Game:
         if (std::holds_alternative<request::Settings>(request) &&
             std::get<request::Settings>(request) == request::Settings::Back) {
-            game_state_.addNews(ImportanceOfNews::RegularNews, "Left current game.");
+            LOG_INFO("Game action: leave current game");
             setFlowState(ClientFlowState::GameOver);
             setSituation(GameSituation::EndScreen);
         }
@@ -523,6 +640,8 @@ void ClientApp::handleUserAction(const UserAction& request) {
     case GameSituation::EndScreen:
         if (std::holds_alternative<request::Settings>(request) &&
             std::get<request::Settings>(request) == request::Settings::Back) {
+            LOG_INFO("End screen action: back to main menu");
+            transport_.disconnect();
             resetStateForMenu();
             setSituation(GameSituation::MainMenu);
         }

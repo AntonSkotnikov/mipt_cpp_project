@@ -1,0 +1,32 @@
+[2026-05-17 13:52:22] [INFO] Starting server
+[2026-05-17 13:52:22] [INFO] Server listening on 0.0.0.0:5555
+[2026-05-17 13:52:47] [INFO] Accepted client socket: fd=5
+[2026-05-17 13:52:47] [INFO] Client handler started: fd=5
+[2026-05-17 13:52:47] [INFO] Processing client request: id=1 command=Connect payload=
+[2026-05-17 13:52:47] [INFO] Player joined lobby as first player: fd=5 role=humanity
+[2026-05-17 13:57:37] [INFO] Accepted client socket: fd=6
+[2026-05-17 13:57:37] [INFO] Client handler started: fd=6
+[2026-05-17 13:57:37] [INFO] Processing client request: id=1 command=Connect payload=
+[2026-05-17 13:57:37] [INFO] Player joined lobby as second player: fd=6 role=pathogen
+[2026-05-17 13:57:43] [INFO] Processing client request: id=2 command=Ready payload=action=Ready;role=Pathogen;subtype=Virus
+[2026-05-17 13:57:43] [INFO] Player ready state changed: fd=6 ready=1
+[2026-05-17 13:57:46] [INFO] Processing client request: id=2 command=Ready payload=action=Ready;role=Humanity;subtype=ResearchInstitute
+[2026-05-17 13:57:46] [INFO] Player ready state changed: fd=5 ready=1
+[2026-05-17 13:57:46] [INFO] Both players are ready, starting game
+[2026-05-17 13:57:46] [INFO] Game loop started
+[2026-05-17 14:18:49] [INFO] Starting server
+[2026-05-17 14:18:49] [INFO] Server listening on 0.0.0.0:5555
+[2026-05-17 14:19:10] [INFO] Accepted client socket: fd=5
+[2026-05-17 14:19:10] [INFO] Client handler started: fd=5
+[2026-05-17 14:19:10] [INFO] Processing client request: id=1 command=Connect payload=
+[2026-05-17 14:19:10] [INFO] Player joined lobby as first player: fd=5 role=pathogen
+[2026-05-17 14:19:18] [INFO] Accepted client socket: fd=6
+[2026-05-17 14:19:18] [INFO] Client handler started: fd=6
+[2026-05-17 14:19:18] [INFO] Processing client request: id=1 command=Connect payload=
+[2026-05-17 14:19:18] [INFO] Player joined lobby as second player: fd=6 role=humanity
+[2026-05-17 14:19:20] [INFO] Processing client request: id=2 command=Ready payload=action=Ready;role=Humanity;subtype=ResearchInstitute
+[2026-05-17 14:19:20] [INFO] Player ready state changed: fd=6 ready=1
+[2026-05-17 14:19:22] [INFO] Processing client request: id=2 command=Ready payload=action=Ready;role=Pathogen;subtype=Virus
+[2026-05-17 14:19:22] [INFO] Player ready state changed: fd=5 ready=1
+[2026-05-17 14:19:22] [INFO] Both players are ready, starting game
+[2026-05-17 14:19:22] [INFO] Game loop started

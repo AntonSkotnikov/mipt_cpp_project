@@ -1,5 +1,7 @@
 #include "RequestHandler.hpp"
 
+#include "logger.hpp"
+
 #include <vector>
 
 namespace plague {
@@ -32,6 +34,13 @@ RequestId RequestHandler::sendRequest(ClientCommand command,
         config
     });
 
+    LOG_INFO("Sending request: id=%u command=%s",
+             req_id,
+             clientCommandToString(command));
+    if (!payload.empty()) {
+        LOG_DEBUG("Request payload: id=%u payload=%s", req_id, payload.c_str());
+    }
+
     enqueueOutgoing(req_id, command, payload);
     flushOutboundQueue();
     return req_id;
@@ -45,8 +54,14 @@ void RequestHandler::handleIncoming(const ServerResponse& response) {
         std::lock_guard<std::mutex> lock(mutex_);
         const auto it = pending_requests_.find(response.request_id);
         if (it == pending_requests_.end()) {
+            LOG_DEBUG("Received unhandled response: id=%u success=%d",
+                      response.request_id,
+                      response.success ? 1 : 0);
             unhandled_callback = unhandled_response_callback_;
         } else {
+            LOG_INFO("Received response: id=%u success=%d",
+                     response.request_id,
+                     response.success ? 1 : 0);
             callback = std::move(it->second.on_response);
             pending_requests_.erase(it);
         }
@@ -92,6 +107,7 @@ void RequestHandler::update() {
 
 void RequestHandler::cancelRequest(RequestId id) {
     std::lock_guard<std::mutex> lock(mutex_);
+    LOG_INFO("Canceling request: id=%u", id);
     pending_requests_.erase(id);
 }
 
@@ -124,6 +140,10 @@ void RequestHandler::flushOutboundQueue() {
 
 void RequestHandler::processTimeout(const PendingRequest& req) {
     if (req.retries_left > 0 && transport_.isConnected()) {
+        LOG_WARNING("Request timed out, retrying: id=%u command=%s retries_left=%d",
+                    req.id,
+                    clientCommandToString(req.command),
+                    req.retries_left);
         PendingRequest retried_request = req;
         retried_request.retries_left -= 1;
         retried_request.deadline = std::chrono::steady_clock::now() + retried_request.config.timeout;
@@ -135,6 +155,9 @@ void RequestHandler::processTimeout(const PendingRequest& req) {
         return;
     }
 
+    LOG_ERROR("Request timed out permanently: id=%u command=%s",
+              req.id,
+              clientCommandToString(req.command));
     if (req.on_timeout) {
         req.on_timeout(req.id);
     }

@@ -1,8 +1,10 @@
 #include "SocketTransport.hpp"
 
 #include "Client_ServerAPI.hpp"
+#include "logger.hpp"
 
 #include <cerrno>
+#include <cstring>
 #include <fcntl.h>
 #include <netdb.h>
 #include <sys/socket.h>
@@ -15,6 +17,7 @@ SocketTransport::~SocketTransport() {
 }
 
 bool SocketTransport::connectToServer(const char* host, int port) {
+    LOG_INFO("Opening socket connection to %s:%d", host, port);
     disconnect();
 
     struct addrinfo hints {};
@@ -23,13 +26,19 @@ bool SocketTransport::connectToServer(const char* host, int port) {
 
     struct addrinfo* results = nullptr;
     const std::string port_text = std::to_string(port);
-    if (getaddrinfo(host, port_text.c_str(), &hints, &results) != 0) {
+    const int address_status = getaddrinfo(host, port_text.c_str(), &hints, &results);
+    if (address_status != 0) {
+        LOG_WARNING("Failed to resolve server address %s:%d: %s",
+                    host,
+                    port,
+                    gai_strerror(address_status));
         return false;
     }
 
     for (struct addrinfo* current = results; current != nullptr; current = current->ai_next) {
         const int fd = socket(current->ai_family, current->ai_socktype, current->ai_protocol);
         if (fd < 0) {
+            LOG_DEBUG("Skipping address candidate: socket failed: %s", std::strerror(errno));
             continue;
         }
 
@@ -41,17 +50,23 @@ bool SocketTransport::connectToServer(const char* host, int port) {
         if (connect(fd, current->ai_addr, current->ai_addrlen) == 0 && setNonBlocking(fd)) {
             socket_fd_ = fd;
             connected_ = true;
+            LOG_INFO("Socket connection established to %s:%d", host, port);
             break;
         }
 
+        LOG_DEBUG("Address candidate failed for %s:%d: %s", host, port, std::strerror(errno));
         close(fd);
     }
 
     freeaddrinfo(results);
+    if (!connected_) {
+        LOG_WARNING("Could not connect to %s:%d", host, port);
+    }
     return connected_;
 }
 
 void SocketTransport::disconnect() {
+    const bool was_connected = connected_ || socket_fd_ >= 0;
     if (socket_fd_ >= 0) {
         close(socket_fd_);
         socket_fd_ = -1;
@@ -60,6 +75,10 @@ void SocketTransport::disconnect() {
     connected_ = false;
     read_buffer_.clear();
     parsed_responses_ = {};
+
+    if (was_connected) {
+        LOG_INFO("Socket disconnected");
+    }
 }
 
 bool SocketTransport::isConnected() const {
@@ -68,9 +87,13 @@ bool SocketTransport::isConnected() const {
 
 bool SocketTransport::send(const ClientPackage& package) {
     if (!connected_) {
+        LOG_WARNING("Cannot send package: socket is not connected");
         return false;
     }
 
+    LOG_DEBUG("Sending client package: command=%s payload=%s",
+              clientCommandToString(package.command),
+              package.payload.c_str());
     return sendAll(serializeClientPackage(package.command, package.payload));
 }
 
@@ -110,11 +133,13 @@ bool SocketTransport::sendAll(const std::string& wire_data) {
                 continue;
             }
 
+            LOG_ERROR("Socket send failed: %s", std::strerror(errno));
             disconnect();
             return false;
         }
 
         if (sent_now == 0) {
+            LOG_WARNING("Socket send returned zero bytes");
             disconnect();
             return false;
         }
@@ -137,6 +162,7 @@ void SocketTransport::readAvailableData() {
         }
 
         if (bytes_read == 0) {
+            LOG_INFO("Server closed the socket connection");
             disconnect();
             return;
         }
@@ -149,6 +175,7 @@ void SocketTransport::readAvailableData() {
             return;
         }
 
+        LOG_ERROR("Socket recv failed: %s", std::strerror(errno));
         disconnect();
         return;
     }
@@ -171,7 +198,12 @@ void SocketTransport::parseBufferedResponses() {
 
         const auto parsed = parseServerResponseLine(line);
         if (parsed.has_value()) {
+            LOG_DEBUG("Parsed server response: request_id=%u success=%d",
+                      parsed->request_id,
+                      parsed->success ? 1 : 0);
             parsed_responses_.push(*parsed);
+        } else {
+            LOG_WARNING("Failed to parse server response line: %s", line.c_str());
         }
     }
 }

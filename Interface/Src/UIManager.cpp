@@ -139,6 +139,7 @@ UIManager::UIManager() {
     cbreak();
     noecho();
     keypad(stdscr, TRUE);
+    set_escdelay(25);
     timeout(0);
     curs_set(0);
 

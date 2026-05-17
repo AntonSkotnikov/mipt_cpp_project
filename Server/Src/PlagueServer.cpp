@@ -1,6 +1,7 @@
 #include "PlagueServer.hpp"
 
 #include "LobbyManager.hpp"
+#include "logger.hpp"
 
 #include <algorithm>
 #include <arpa/inet.h>
@@ -90,6 +91,7 @@ PlagueServer::~PlagueServer() {
 void PlagueServer::run() {
     server_socket_ = socket(AF_INET, SOCK_STREAM, 0);
     if (server_socket_ < 0) {
+        LOG_FATAL("Failed to create server socket");
         std::cerr << "Failed to create server socket\n";
         std::exit(1);
     }
@@ -105,32 +107,35 @@ void PlagueServer::run() {
     address.sin_family = AF_INET;
     address.sin_port = htons(static_cast<uint16_t>(port_));
     if (inet_pton(AF_INET, ip_.c_str(), &address.sin_addr) != 1) {
+        LOG_FATAL("Invalid bind address: %s", ip_.c_str());
         std::cerr << "Invalid bind address: " << ip_ << '\n';
         std::exit(1);
     }
 
     if (bind(server_socket_, reinterpret_cast<sockaddr*>(&address), sizeof(address)) != 0) {
+        LOG_FATAL("Bind error on %s:%d: %s", ip_.c_str(), port_, std::strerror(errno));
         std::cerr << "Bind error: " << std::strerror(errno) << '\n';
         std::exit(1);
     }
 
     if (listen(server_socket_, SOMAXCONN) != 0) {
+        LOG_FATAL("Listen error on %s:%d: %s", ip_.c_str(), port_, std::strerror(errno));
         std::cerr << "Listen error: " << std::strerror(errno) << '\n';
         std::exit(1);
     }
 
-    std::cout << "Server listening on " << ip_ << ':' << port_ << '\n';
-
+    LOG_INFO("Server listening on %s:%d", ip_.c_str(), port_);
     while (true) {
         const int client_socket = accept(server_socket_, nullptr, nullptr);
         if (client_socket < 0) {
             if (errno == EINTR) {
                 continue;
             }
-
-            std::cerr << "Accept error: " << std::strerror(errno) << '\n';
+            LOG_ERROR("Accept error: %s", std::strerror(errno));
             continue;
         }
+
+        LOG_INFO("Accepted client socket: fd=%d", client_socket);
 
 #ifdef SO_NOSIGPIPE
         int no_sigpipe_client = 1;
@@ -142,6 +147,7 @@ void PlagueServer::run() {
 }
 
 void PlagueServer::handleClient(int client_socket) {
+    LOG_INFO("Client handler started: fd=%d", client_socket);
     ClientSession session;
     session.socket_fd = client_socket;
 
@@ -165,6 +171,7 @@ void PlagueServer::handleClient(int client_socket) {
             }
 
             if (!line.empty() && !processInput(session, line)) {
+                LOG_INFO("Client requested disconnect: fd=%d", client_socket);
                 lobby_->removePlayer(session);
                 close(client_socket);
                 return;
@@ -172,6 +179,7 @@ void PlagueServer::handleClient(int client_socket) {
         }
     }
 
+    LOG_INFO("Client connection closed: fd=%d", client_socket);
     lobby_->removePlayer(session);
     close(client_socket);
 }
@@ -179,9 +187,14 @@ void PlagueServer::handleClient(int client_socket) {
 bool PlagueServer::processInput(ClientSession& session, const std::string& line) {
     const auto request = parseClientRequestLine(line);
     if (!request.has_value()) {
-        std::cerr << "Invalid request format: " << line << '\n';
+        LOG_WARNING("Invalid request format: %s", line.c_str());
         return true;
     }
+
+    LOG_INFO("Processing client request: id=%u command=%s payload=%s",
+             request->request_id,
+             clientCommandToString(request->command),
+             request->payload.c_str());
 
     ServerResponse response;
     response.request_id = request->request_id;
@@ -197,13 +210,29 @@ bool PlagueServer::processInput(ClientSession& session, const std::string& line)
     }
 
     case ClientCommand::Disconnect:
+        LOG_INFO("Disconnect request received: id=%u", request->request_id);
         response.payload = "disconnected";
         sendResponse(session, response);
         return false;
 
+    case ClientCommand::SelectSubtype:
+        response = makeResponse(*request, lobby_->updateSubtype(
+            session,
+            subtypeFromPayload(request->payload, session.role)));
+        break;
+
+    case ClientCommand::ChangeSide:
+        response = makeResponse(*request, lobby_->requestSideChange(session));
+        break;
+
+    case ClientCommand::Ready:
+        response = makeResponse(*request, lobby_->toggleReady(session));
+        break;
+
     case ClientCommand::ChooseHumanity:
     case ClientCommand::ChoosePathogen:
-        // Existing Common commands are reused as the Ready request because Common cannot be changed yet.
+        // Legacy clients used role commands for choosing-side actions before
+        // Common exposed dedicated lobby commands.
         if (action == "ready" || request->payload.empty()) {
             response = makeResponse(*request, lobby_->toggleReady(session));
         } else if (action == "selectsubtype") {
@@ -218,7 +247,7 @@ bool PlagueServer::processInput(ClientSession& session, const std::string& line)
         break;
 
     case ClientCommand::Ping:
-        // SelectSubtype and ChangeSide are tunneled through Ping until Common gets dedicated commands.
+        // Legacy clients tunneled lobby actions through Ping.
         if (action == "selectsubtype") {
             response = makeResponse(*request, lobby_->updateSubtype(
                 session,
@@ -231,6 +260,11 @@ bool PlagueServer::processInput(ClientSession& session, const std::string& line)
         break;
     }
 
+    LOG_DEBUG("Sending response: id=%u success=%d payload=%s error=%s",
+              response.request_id,
+              response.success ? 1 : 0,
+              response.payload.c_str(),
+              response.error_message.c_str());
     return sendResponse(session, response);
 }
 
@@ -250,11 +284,12 @@ bool PlagueServer::sendResponse(ClientSession& session, const ServerResponse& re
                 continue;
             }
 
-            std::cerr << "Send error: " << std::strerror(errno) << '\n';
+            LOG_ERROR("Send error: %s", std::strerror(errno));
             return false;
         }
 
         if (sent_now == 0) {
+            LOG_WARNING("Send returned zero bytes");
             return false;
         }
 
