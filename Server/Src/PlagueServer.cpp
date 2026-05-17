@@ -229,6 +229,13 @@ bool PlagueServer::processInput(ClientSession& session, const std::string& line)
         response = makeResponse(*request, lobby_->toggleReady(session));
         break;
 
+    case ClientCommand::SelectCountry:
+        LOG_INFO("SelectCountry request received: id=%u payload=%s",
+                 request->request_id,
+                 request->payload.c_str());
+        response.payload = R"({"screen":"Game","event":"CountrySelected"})";
+        break;
+
     case ClientCommand::ChooseHumanity:
     case ClientCommand::ChoosePathogen:
         // Legacy clients used role commands for choosing-side actions before

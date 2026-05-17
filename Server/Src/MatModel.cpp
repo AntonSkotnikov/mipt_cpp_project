@@ -6,7 +6,6 @@
 #include <algorithm>
 #include <cmath>
 #include <random>
-
 namespace plague {
 
 // ========== РЕАЛИЗАЦИЯ МЕТОДОВ СИМУЛЯЦИОННЫХ ТИПОВ ==========

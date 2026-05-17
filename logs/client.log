@@ -1,0 +1,53 @@
+[2026-05-18 02:00:58] [INFO] Starting client
+[2026-05-18 02:00:58] [INFO] Client event loop started in MainMenu
+[2026-05-18 02:01:00] [INFO] Starting client
+[2026-05-18 02:01:00] [INFO] Client event loop started in MainMenu
+[2026-05-18 02:01:01] [INFO] Main menu action: connect to server
+[2026-05-18 02:01:01] [INFO] Client flow changed: Disconnected -> Connecting
+[2026-05-18 02:01:01] [INFO] Situation changed: MainMenu -> ConnectingToServer
+[2026-05-18 02:01:07] [INFO] Connect form submitted: host=127.0.0.1 port=5555
+[2026-05-18 02:01:07] [INFO] Opening socket connection to 127.0.0.1:5555
+[2026-05-18 02:01:07] [INFO] Socket connection established to 127.0.0.1:5555
+[2026-05-18 02:01:07] [INFO] Connection established, requesting lobby role
+[2026-05-18 02:01:07] [INFO] Client flow changed: Connecting -> WaitingForRole
+[2026-05-18 02:01:07] [INFO] Sending request: id=1 command=Connect
+[2026-05-18 02:01:07] [INFO] Received response: id=1 success=1
+[2026-05-18 02:01:07] [INFO] Assigned role: Pathogen
+[2026-05-18 02:01:07] [INFO] Client flow changed: WaitingForRole -> ChoosingSubtype
+[2026-05-18 02:01:07] [INFO] Situation changed: ConnectingToServer -> ChoosingSide
+[2026-05-18 02:01:10] [INFO] Main menu action: connect to server
+[2026-05-18 02:01:10] [INFO] Client flow changed: Disconnected -> Connecting
+[2026-05-18 02:01:10] [INFO] Situation changed: MainMenu -> ConnectingToServer
+[2026-05-18 02:01:14] [INFO] Connect form submitted: host=127.0.0.1 port=5555
+[2026-05-18 02:01:14] [INFO] Opening socket connection to 127.0.0.1:5555
+[2026-05-18 02:01:14] [INFO] Socket connection established to 127.0.0.1:5555
+[2026-05-18 02:01:14] [INFO] Connection established, requesting lobby role
+[2026-05-18 02:01:14] [INFO] Client flow changed: Connecting -> WaitingForRole
+[2026-05-18 02:01:14] [INFO] Sending request: id=1 command=Connect
+[2026-05-18 02:01:14] [INFO] Assigned role: Pathogen
+[2026-05-18 02:01:14] [INFO] Received response: id=1 success=1
+[2026-05-18 02:01:14] [INFO] Assigned role: Humanity
+[2026-05-18 02:01:14] [INFO] Client flow changed: WaitingForRole -> ChoosingSubtype
+[2026-05-18 02:01:14] [INFO] Situation changed: ConnectingToServer -> ChoosingSide
+[2026-05-18 02:01:16] [INFO] Choosing-side action: ready
+[2026-05-18 02:01:16] [INFO] Client flow changed: ChoosingSubtype -> ReadyWaitingStart
+[2026-05-18 02:01:16] [INFO] Sending request: id=2 command=Ready
+[2026-05-18 02:01:16] [INFO] Assigned role: Pathogen
+[2026-05-18 02:01:16] [INFO] Received response: id=2 success=1
+[2026-05-18 02:01:16] [INFO] Assigned role: Humanity
+[2026-05-18 02:01:18] [INFO] Choosing-side action: ready
+[2026-05-18 02:01:18] [INFO] Client flow changed: ChoosingSubtype -> ReadyWaitingStart
+[2026-05-18 02:01:18] [INFO] Sending request: id=2 command=Ready
+[2026-05-18 02:01:18] [INFO] Received response: id=2 success=1
+[2026-05-18 02:01:18] [INFO] Assigned role: Pathogen
+[2026-05-18 02:01:18] [INFO] Game start packet received
+[2026-05-18 02:01:18] [INFO] Client flow changed: ReadyWaitingStart -> GameRunning
+[2026-05-18 02:01:18] [INFO] Situation changed: ChoosingSide -> Game
+[2026-05-18 02:01:18] [INFO] Assigned role: Humanity
+[2026-05-18 02:01:18] [INFO] Game start packet received
+[2026-05-18 02:01:18] [INFO] Client flow changed: ReadyWaitingStart -> GameRunning
+[2026-05-18 02:01:18] [INFO] Situation changed: ChoosingSide -> Game
+[2026-05-18 02:09:21] [INFO] Server closed the socket connection
+[2026-05-18 02:09:21] [INFO] Socket disconnected
+[2026-05-18 02:09:21] [INFO] Server closed the socket connection
+[2026-05-18 02:09:21] [INFO] Socket disconnected
