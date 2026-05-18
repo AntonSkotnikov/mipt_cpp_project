@@ -204,6 +204,7 @@ void GameScreen::focusActionButton(std::size_t buttonIndex) {
     }
 
     navigatingCountries_ = false;
+    showWorldOverview();
     focusWidget(gameActionButtonIndices[buttonIndex]);
 }
 
@@ -223,6 +224,11 @@ void GameScreen::toggleNavigationMode() {
 
     navigatingCountries_ = true;
     focusCountry(indexOfSelectedCountry < 0 ? 0 : static_cast<std::size_t>(indexOfSelectedCountry));
+}
+
+void GameScreen::showWorldOverview() {
+    indexOfSelectedCountry = -1;
+    updateSelectedCountryInfo();
 }
 
 void GameScreen::updateNewsTicker() {
@@ -287,6 +293,11 @@ void GameScreen::updateSelectedCountryInfo() {
 }
 
 request::UIRequest GameScreen::handleInput(int key) {
+    if (key == 27) {
+        focusActionButton(0);
+        return request::None{};
+    }
+
     const InputResult result = handleFocusedInput(key);
     if (!std::holds_alternative<request::None>(result.request)) {
         return result.request;
