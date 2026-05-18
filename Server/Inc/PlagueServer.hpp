@@ -30,7 +30,7 @@ struct ClientSession {
     bool wantsSideChange = false;
     std::vector<UpgradeId> purchasedUpgrades;
     LobbyState lobbyState = LobbyState::WaitingForSecond;
-    int points = 100;
+    int points = 0;
     RequestId lastRequestId = 0;
     bool connected = true;
     std::mutex sendMutex;

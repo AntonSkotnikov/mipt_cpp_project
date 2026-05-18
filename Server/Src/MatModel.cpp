@@ -120,7 +120,7 @@ World initializeWorld() {
 
     // Параметры вируса
     world.virus.infectivity = 0.3;
-    world.virus.lethality = 0.02;
+    world.virus.lethality = 0.0;
     world.virus.vaccineDifficulty = 0.5;
     world.virus.incubationPeriod = 5.0;    // 5 дней инкубации
     world.virus.infectiousPeriod = 14.0;   // 14 дней заразности
