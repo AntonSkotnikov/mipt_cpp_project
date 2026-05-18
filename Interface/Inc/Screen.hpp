@@ -153,6 +153,7 @@ private:
     void focusPrevActionButton();
     void toggleNavigationMode();
     void updateNewsTicker();
+    void updateCountryHighlights();
     void updatePopulationInfo();
     void updateSelectedCountryInfo();
 };
