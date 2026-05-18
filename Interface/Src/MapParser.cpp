@@ -1,9 +1,11 @@
 #include "MapParser.hpp"
 
 #include <algorithm>
+#include <array>
 #include <fstream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 
 namespace plague::ui {
 
@@ -61,6 +63,14 @@ std::size_t utf8SymbolLength(unsigned char ch) {
     return 1;
 }
 
+std::array<std::string_view, 2> mapFileNameCandidates(const std::string & countryName) {
+    if (countryName == "NEW ZEALAND") {
+        return {countryName, "NEW ZELAND"};
+    }
+
+    return {countryName, countryName};
+}
+
 }
 
 std::vector<SymbolOnScreen> parseMapFile(const std::filesystem::path & path) {
@@ -101,11 +111,14 @@ std::vector<SymbolOnScreen> parseLowMapCountry(const std::string & countryName) 
 
 std::vector<SymbolOnScreen> parseMapCountry(const std::string & countryName, Resolutions resolution) {
     const MapDirSet dirs = dirsForResolution(resolution);
+    const auto candidates = mapFileNameCandidates(countryName);
 
     for (std::size_t i = 0; i < dirs.count; i++) {
-        const std::filesystem::path path = std::filesystem::path(dirs.dirs[i]) / countryName;
-        if (std::filesystem::exists(path)) {
-            return parseMapFile(path);
+        for (std::string_view candidate : candidates) {
+            const std::filesystem::path path = std::filesystem::path(dirs.dirs[i]) / candidate;
+            if (std::filesystem::exists(path)) {
+                return parseMapFile(path);
+            }
         }
     }
 
