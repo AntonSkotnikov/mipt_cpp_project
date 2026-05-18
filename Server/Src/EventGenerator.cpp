@@ -59,6 +59,8 @@ int EventGenerator::selectRandomInfectedCountry(const World& world) {
 // ========== ГЛАВНАЯ ФУНКЦИЯ ГЕНЕРАЦИИ ==========
 EventResult EventGenerator::generateEvent(World& world, int day,
                                           int pathogenDNA, int humanityDNA) {
+    (void)pathogenDNA;
+
     EventResult result;
 
     updateActiveEvents(world);
@@ -436,6 +438,9 @@ EventResult EventGenerator::tryDNAClickOpportunity(World& world, int day) {
 
 // ========== ОБРАБОТКА КЛИКА ==========
 int EventGenerator::handleCountryClick(size_t countryIdx, int playerIndex) {
+    (void)countryIdx;
+    (void)playerIndex;
+
     return params_.baseDNAAmount;
 }
 

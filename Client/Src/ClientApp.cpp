@@ -327,6 +327,51 @@ std::vector<std::string> parseStringArrayField(std::string_view payload, std::st
     return values;
 }
 
+std::vector<bool> parseBoolArrayField(std::string_view payload, std::string_view key) {
+    std::vector<bool> values;
+    const std::string quotedKey = '"' + std::string(key) + '"';
+    std::size_t pos = payload.find(quotedKey);
+    if (pos == std::string_view::npos) {
+        return values;
+    }
+
+    pos = payload.find('[', pos + quotedKey.size());
+    if (pos == std::string_view::npos) {
+        return values;
+    }
+
+    const std::size_t end = payload.find(']', pos + 1);
+    if (end == std::string_view::npos) {
+        return values;
+    }
+
+    std::string text(payload.substr(pos + 1, end - pos - 1));
+    std::size_t valueStart = 0;
+    while (valueStart < text.size()) {
+        while (valueStart < text.size() &&
+               (text[valueStart] == ' ' || text[valueStart] == '\t' || text[valueStart] == ',')) {
+            ++valueStart;
+        }
+
+        const std::size_t valueEnd = text.find(',', valueStart);
+        const std::string token = toLower(text.substr(
+            valueStart,
+            valueEnd == std::string::npos ? std::string::npos : valueEnd - valueStart));
+        if (token.find("true") != std::string::npos || token.find('1') != std::string::npos) {
+            values.push_back(true);
+        } else if (token.find("false") != std::string::npos || token.find('0') != std::string::npos) {
+            values.push_back(false);
+        }
+
+        if (valueEnd == std::string::npos) {
+            break;
+        }
+        valueStart = valueEnd + 1;
+    }
+
+    return values;
+}
+
 std::vector<Country> parseCountries(const std::string& payload) {
     std::vector<Country> countries;
     for (const std::string& object : parseObjectArrayField(payload, "countries")) {
@@ -590,6 +635,14 @@ void applyGamePayload(GameState& gameState, const std::string& payload) {
     std::vector<Country> countries = parseCountries(payload);
     if (!countries.empty()) {
         gameState.setCountries(countries);
+    }
+
+    if (contains(payload, "\"highlightedCountries\"")) {
+        gameState.setHighlightedCountries(parseBoolArrayField(payload, "highlightedCountries"));
+    }
+
+    if (contains(payload, "\"news\"")) {
+        gameState.setNews(parseStringArrayField(payload, "news"));
     }
 
     std::vector<UpgradeDefinition> upgrades = parseAvailableUpgrades(payload);

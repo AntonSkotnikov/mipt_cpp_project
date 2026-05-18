@@ -44,7 +44,7 @@ constexpr std::array<const char *, 29> lowMapCountries = {
     "MONGOLIA",
     "N AFRICA",
     "N SOUTH AMERICA",
-    "NEW ZELAND",
+    "NEW ZEALAND",
     "OCEANIA",
     "RUSSIA",
     "S AFRICA",
