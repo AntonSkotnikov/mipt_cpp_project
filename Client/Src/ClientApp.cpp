@@ -566,6 +566,10 @@ std::string makeSelectCountryPayload(const std::string& countryName) {
     return "country=" + countryName;
 }
 
+std::string makePurchaseUpgradePayload(const std::string& upgradeId) {
+    return "upgrade=" + upgradeId;
+}
+
 void applyRoomPayload(GameState& gameState, const std::string& payload) {
     gameState.setRooms(parseRooms(payload));
 }
@@ -591,6 +595,10 @@ void applyGamePayload(GameState& gameState, const std::string& payload) {
     std::vector<UpgradeDefinition> upgrades = parseAvailableUpgrades(payload);
     if (!upgrades.empty()) {
         gameState.setAvailableUpgrades(upgrades);
+    }
+
+    if (contains(payload, "\"purchasedUpgrades\"")) {
+        gameState.setPurchasedUpgrades(parseStringArrayField(payload, "purchasedUpgrades"));
     }
 }
 
@@ -1041,6 +1049,28 @@ void ClientApp::handleUserAction(const UserAction& request) {
                 },
                 [countryName = selectCountry.countryName](RequestId) {
                     LOG_WARNING("Select-country request timed out: country=%s", countryName.c_str());
+                });
+        } else if (std::holds_alternative<request::PurchaseUpgrade>(request)) {
+            if (request_handler_->hasPendingRequests()) {
+                LOG_DEBUG("Purchase-upgrade action ignored because a request is already pending");
+                break;
+            }
+
+            const request::PurchaseUpgrade purchase = std::get<request::PurchaseUpgrade>(request);
+            if (purchase.upgradeId.empty()) {
+                LOG_WARNING("Purchase-upgrade action ignored: upgrade id is empty");
+                break;
+            }
+
+            LOG_INFO("Game action: purchase upgrade=%s", purchase.upgradeId.c_str());
+            request_handler_->sendRequest(
+                ClientCommand::PurchaseUpgrade,
+                makePurchaseUpgradePayload(purchase.upgradeId),
+                [this](const ServerResponse& response) {
+                    handleServerPacket(response);
+                },
+                [upgradeId = purchase.upgradeId](RequestId) {
+                    LOG_WARNING("Purchase-upgrade request timed out: upgrade=%s", upgradeId.c_str());
                 });
         } else if (std::holds_alternative<request::Settings>(request) &&
             std::get<request::Settings>(request) == request::Settings::Back) {

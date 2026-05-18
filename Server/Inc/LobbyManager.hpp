@@ -37,6 +37,7 @@ public:
     LobbyActionResult toggleReady(ClientSession& session);
     LobbyActionResult requestSideChange(ClientSession& requester);
     LobbyActionResult selectCountry(ClientSession& session, const std::string& countryName);
+    LobbyActionResult purchaseUpgrade(ClientSession& session, const std::string& upgradeId);
     void removePlayer(ClientSession& session);
 
 private:
@@ -51,6 +52,10 @@ private:
     void swapRolesLocked();
     std::string lobbyPayloadFor(const ClientSession& session, const char* event) const;
     std::string startPayloadFor(const ClientSession& session) const;
+    std::string upgradePurchasePayloadFor(const ClientSession& session,
+                                          const char* event,
+                                          const std::string& upgradeId,
+                                          const char* reason) const;
     std::string gameStatsPayload(int tick) const;
     std::string gameStatsPayloadLocked(const char* event) const;
     void notifySession(ClientSession& session, const std::string& payload);

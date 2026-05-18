@@ -61,6 +61,11 @@ void GameState::setAvailableUpgrades(const std::vector<UpgradeDefinition>& upgra
     snapshot_.availableUpgrades = upgrades;
 }
 
+void GameState::setPurchasedUpgrades(const std::vector<UpgradeId>& upgrades) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    snapshot_.purchasedUpgrades = upgrades;
+}
+
 void GameState::setCureProgress(double cureProgress) {
     std::lock_guard<std::mutex> lock(mutex_);
     snapshot_.cureProgress = cureProgress;

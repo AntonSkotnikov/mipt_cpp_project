@@ -115,6 +115,15 @@ void appendUpgrade(std::ostringstream& payload, const UpgradeDefinition& upgrade
     payload << '}';
 }
 
+const UpgradeDefinition* findUpgrade(PlayerRole role, const UpgradeId& upgradeId) {
+    const std::vector<UpgradeDefinition>& upgrades = availableUpgradesFor(role);
+    const auto it = std::find_if(upgrades.begin(), upgrades.end(),
+        [&upgradeId](const UpgradeDefinition& upgrade) {
+            return upgrade.id == upgradeId;
+        });
+    return it == upgrades.end() ? nullptr : &*it;
+}
+
 PlayerSubtype defaultSubtypeFor(PlayerRole role) {
     if (role == PlayerRole::Pathogen) {
         return PathogenSubtype::Virus;
@@ -583,6 +592,69 @@ LobbyActionResult LobbyManager::selectCountry(ClientSession& session, const std:
     return result;
 }
 
+LobbyActionResult LobbyManager::purchaseUpgrade(ClientSession& session, const std::string& upgradeId) {
+    LobbyActionResult result;
+
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+
+        if (!containsSession(session)) {
+            LOG_WARNING("Upgrade purchase rejected: player is not in lobby fd=%d upgrade=%s",
+                        session.socket_fd,
+                        upgradeId.c_str());
+            result.payload = upgradePurchasePayloadFor(session, "UpgradeRejected", upgradeId, "not_in_lobby");
+            return result;
+        }
+
+        if (session.lobbyState != LobbyState::InGame) {
+            LOG_WARNING("Upgrade purchase rejected: game is not running fd=%d upgrade=%s",
+                        session.socket_fd,
+                        upgradeId.c_str());
+            result.payload = upgradePurchasePayloadFor(session, "UpgradeRejected", upgradeId, "game_not_running");
+            return result;
+        }
+
+        const UpgradeDefinition* upgrade = findUpgrade(session.role, upgradeId);
+        if (upgrade == nullptr) {
+            LOG_WARNING("Upgrade purchase rejected: unknown upgrade=%s role=%s fd=%d",
+                        upgradeId.c_str(),
+                        roleToJson(session.role),
+                        session.socket_fd);
+            result.payload = upgradePurchasePayloadFor(session, "UpgradeRejected", upgradeId, "unknown_upgrade");
+            return result;
+        }
+
+        if (std::find(session.purchasedUpgrades.begin(),
+                      session.purchasedUpgrades.end(),
+                      upgradeId) != session.purchasedUpgrades.end()) {
+            result.payload = upgradePurchasePayloadFor(session, "UpgradeRejected", upgradeId, "already_purchased");
+            return result;
+        }
+
+        if (!dependenciesSatisfied(*upgrade, session.purchasedUpgrades)) {
+            result.payload = upgradePurchasePayloadFor(session, "UpgradeRejected", upgradeId, "dependencies_not_met");
+            return result;
+        }
+
+        if (session.points < upgrade->cost) {
+            result.payload = upgradePurchasePayloadFor(session, "UpgradeRejected", upgradeId, "not_enough_points");
+            return result;
+        }
+
+        session.points -= upgrade->cost;
+        session.purchasedUpgrades.push_back(upgradeId);
+        LOG_INFO("Upgrade purchased: fd=%d upgrade=%s cost=%u points_left=%d",
+                 session.socket_fd,
+                 upgradeId.c_str(),
+                 static_cast<unsigned>(upgrade->cost),
+                 session.points);
+
+        result.payload = upgradePurchasePayloadFor(session, "UpgradePurchased", upgradeId, "");
+    }
+
+    return result;
+}
+
 void LobbyManager::removePlayer(ClientSession& session) {
     ClientSession* opponent = nullptr;
     std::string opponentPayload;
@@ -765,6 +837,10 @@ std::string LobbyManager::startPayloadFor(const ClientSession& session) const {
     }
 
     payload << ']'
+            << R"(,"purchasedUpgrades":)";
+    appendStringArray(payload, session.purchasedUpgrades);
+
+    payload
             << R"(,"cureProgress":)" << (worldInitialized_ ? world_.vaccine.progress : 0.0)
             << R"(,"countries":[)";
 
@@ -786,6 +862,26 @@ std::string LobbyManager::startPayloadFor(const ClientSession& session) const {
     }
 
     payload << R"(]})";
+    return payload.str();
+}
+
+std::string LobbyManager::upgradePurchasePayloadFor(const ClientSession& session,
+                                                    const char* event,
+                                                    const std::string& upgradeId,
+                                                    const char* reason) const {
+    std::ostringstream payload;
+    payload << R"({"screen":"Game")"
+            << R"(,"event":")" << event << '"'
+            << R"(,"upgradeId":")" << jsonEscape(upgradeId) << '"';
+
+    if (reason != nullptr && reason[0] != '\0') {
+        payload << R"(,"reason":")" << reason << '"';
+    }
+
+    payload << R"(,"points":)" << session.points
+            << R"(,"purchasedUpgrades":)";
+    appendStringArray(payload, session.purchasedUpgrades);
+    payload << '}';
     return payload.str();
 }
 

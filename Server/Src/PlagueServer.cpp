@@ -256,6 +256,15 @@ bool PlagueServer::processInput(ClientSession& session, const std::string& line)
             payloadField(request->payload, "country").value_or("")));
         break;
 
+    case ClientCommand::PurchaseUpgrade:
+        LOG_INFO("PurchaseUpgrade request received: id=%u payload=%s",
+                 request->request_id,
+                 request->payload.c_str());
+        response = makeResponse(*request, lobby_->purchaseUpgrade(
+            session,
+            payloadField(request->payload, "upgrade").value_or("")));
+        break;
+
     case ClientCommand::ChooseHumanity:
     case ClientCommand::ChoosePathogen:
         // Legacy clients used role commands for choosing-side actions before
@@ -295,6 +304,10 @@ bool PlagueServer::processInput(ClientSession& session, const std::string& line)
             response = makeResponse(*request, lobby_->requestSideChange(session));
         } else if (action == "ready") {
             response = makeResponse(*request, lobby_->toggleReady(session));
+        } else if (action == "purchaseupgrade") {
+            response = makeResponse(*request, lobby_->purchaseUpgrade(
+                session,
+                payloadField(request->payload, "upgrade").value_or("")));
         } else {
             response.payload = "pong";
         }
