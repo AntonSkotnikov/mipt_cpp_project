@@ -139,6 +139,8 @@ private:
     VariableInfo * cureInfo_ = nullptr;
     VariableInfo * dayInfo_ = nullptr;
     VariableInfo * selectedCountryInfo_ = nullptr;
+    Ticker * newsTicker_ = nullptr;
+    std::size_t displayedNewsCount_ = 0;
     std::vector<DetalizedImage *> countryImages_;
     std::vector<Rect> countryBounds_;
 
@@ -150,6 +152,7 @@ private:
     void focusNextActionButton();
     void focusPrevActionButton();
     void toggleNavigationMode();
+    void updateNewsTicker();
     void updatePopulationInfo();
     void updateSelectedCountryInfo();
 };
@@ -206,8 +209,14 @@ public:
     NewsScreen(Config & cfg, Window & win);
 
     void resize() override;
+    void updateSnapshot(const GameSnapshot & snapshot);
 private:
+    Info * newsInfo_ = nullptr;
+    GameSnapshot snapshot_{};
+
     void layout();
+    void layoutBody() override;
+    void updateNews();
 };
 
 class UpgradeScreen final : public Screen {

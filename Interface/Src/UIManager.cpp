@@ -125,6 +125,7 @@ void selectScreenForSituation(Config & cfg, ScreenManager & manager, const GameS
             manager.transmission_.updateSnapshot(snap);
             manager.clinic_.updateSnapshot(snap);
             manager.abilities_.updateSnapshot(snap);
+            manager.news_.updateSnapshot(snap);
             break;
 
         default:
