@@ -337,7 +337,7 @@ LobbyActionResult LobbyManager::addPlayer(ClientSession& session) {
 
         removeBrowserLocked(session);
         session.connected = true;
-        session.points = 100;
+        session.points = 0;
         session.isReady = false;
         session.wantsSideChange = false;
         session.purchasedUpgrades.clear();
@@ -1080,7 +1080,7 @@ void LobbyManager::startGameLocked(ClientSession& triggeringSession) {
         player->lobbyState = LobbyState::InGame;
         player->isReady = true;
         player->wantsSideChange = false;
-        player->points = 100;
+        player->points = 0;
     }
 
     world_ = initializeWorld();
