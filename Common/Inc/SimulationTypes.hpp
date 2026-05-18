@@ -1,7 +1,5 @@
 #pragma once
 
-
-
 #include <vector>
 #include <string>
 
@@ -90,7 +88,7 @@ struct Vaccine {
 struct CountryConnection {
     size_t from;              // Индекс страны-источника
     size_t to;                // Индекс страны-назначения
-    double transportVolume;   // Объем транспорта (людей в день)
+    double transportVolume;   // Объем транспорта (людей в день) - для обратной совместимости
     bool isActive;            // Активна ли связь (границы открыты)
 
     // Связь обрывается при закрытии границ одной из стран

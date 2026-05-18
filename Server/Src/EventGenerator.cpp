@@ -1,8 +1,7 @@
 #include "EventGenerator.hpp"
-#include "SimulationTypes.hpp"
 #include <sstream>
 #include <algorithm>
-
+#include <cmath>
 
 namespace plague {
 
@@ -25,17 +24,11 @@ int EventGenerator::randomInt(int min, int max) {
     return dist(rng_);
 }
 
-int EventGenerator::selectRandomCountry(const World& world) {
-    if (world.countries.empty()) return -1;
-    return randomInt(0, static_cast<int>(world.countries.size()) - 1);
-}
-
 int EventGenerator::selectRandomUninfectedCountry(const World& world) {
     std::vector<int> uninfectedIndices;
 
     for (size_t i = 0; i < world.countries.size(); ++i) {
         const auto& country = world.countries[i];
-        // Страна считается незараженной, если нет активных зараженных
         if (country.pop.infected < 1.0 && country.pop.exposed < 1.0) {
             uninfectedIndices.push_back(static_cast<int>(i));
         }
@@ -47,18 +40,29 @@ int EventGenerator::selectRandomUninfectedCountry(const World& world) {
     return uninfectedIndices[randomIdx];
 }
 
+int EventGenerator::selectRandomInfectedCountry(const World& world) {
+    std::vector<int> infectedIndices;
+
+    for (size_t i = 0; i < world.countries.size(); ++i) {
+        const auto& country = world.countries[i];
+        if (country.pop.infected >= 1.0 || country.pop.exposed >= 1.0) {
+            infectedIndices.push_back(static_cast<int>(i));
+        }
+    }
+
+    if (infectedIndices.empty()) return -1;
+
+    size_t randomIdx = static_cast<size_t>(randomInt(0, static_cast<int>(infectedIndices.size()) - 1));
+    return infectedIndices[randomIdx];
+}
+
 // ========== ГЛАВНАЯ ФУНКЦИЯ ГЕНЕРАЦИИ ==========
 EventResult EventGenerator::generateEvent(World& world, int day,
                                           int pathogenDNA, int humanityDNA) {
     EventResult result;
 
-    // Приоритет событий:
-    // 1. Первое заражение (если еще не было ни одного зараженного в мире)
-    // 2. Транспорт (всегда происходит с некоторой вероятностью)
-    // 3. Закрытие границ (зависит от ситуации)
-    // 4. Начисление DNA (периодически)
+    updateActiveEvents(world);
 
-    // Проверяем, есть ли вообще зараженные в мире
     bool hasInfection = false;
     for (const auto& country : world.countries) {
         if (country.pop.infected > 0 || country.pop.exposed > 0) {
@@ -67,7 +71,6 @@ EventResult EventGenerator::generateEvent(World& world, int day,
         }
     }
 
-    // Если инфекции еще нет, пытаемся создать первое заражение
     if (!hasInfection) {
         result = tryFirstInfection(world);
         if (result.type != EventType::None) {
@@ -75,25 +78,26 @@ EventResult EventGenerator::generateEvent(World& world, int day,
         }
     }
 
-    // Всегда пробуем транспорт (это основной механизм распространения)
+    result = trySpecialEvent(world, day);
+    if (result.type != EventType::None) {
+        return result;
+    }
+
     result = tryTransportMovement(world);
     if (result.type != EventType::None) {
         return result;
     }
 
-    // Пробуем закрытие границ
-    result = tryBorderClosure(world);
+    result = tryDNAClickOpportunity(world, day);
     if (result.type != EventType::None) {
         return result;
     }
 
-    // Пробуем начисление DNA
-    result = tryDNAGrant(world, day, pathogenDNA, humanityDNA);
+    result = tryBorderUpgrade(world, humanityDNA);
     if (result.type != EventType::None) {
         return result;
     }
 
-    // Никакое событие не произошло
     return EventResult();
 }
 
@@ -101,38 +105,32 @@ EventResult EventGenerator::generateEvent(World& world, int day,
 EventResult EventGenerator::tryFirstInfection(World& world) {
     EventResult result;
 
-    // Выбираем случайную незараженную страну
     int countryIdx = selectRandomUninfectedCountry(world);
     if (countryIdx < 0) {
-        return result; // Все страны уже заражены
+        return result;
     }
 
-    // Шанс первого заражения (можно настроить)
-    // В реальной игре это происходит по выбору игрока, но здесь симулируем
-    double infectionChance = 0.1; // 10% шанс каждый день пока нет инфекции
+    double infectionChance = 0.15;
 
     if (randomDouble() > infectionChance) {
         return result;
     }
 
-    // Количество зараженных зависит от параметров
-    int infectedCount = params_.baseFirstInfectionCount +
-                        randomInt(-20, 50);
+    int infectedCount = params_.baseFirstInfectionCount + randomInt(-20, 50);
     infectedCount = std::max(10, infectedCount);
 
-    // Применяем заражение
     Country& country = world.countries[static_cast<size_t>(countryIdx)];
     if (country.pop.susceptible >= infectedCount) {
         country.pop.susceptible -= infectedCount;
-        country.pop.exposed += infectedCount; // Начинаем с экспонированных
+        country.pop.exposed += infectedCount;
 
         result.type = EventType::FirstInfection;
         result.countryIndex = static_cast<size_t>(countryIdx);
         result.infectedCount = infectedCount;
 
         std::ostringstream ss;
-        ss << "Первое заражение в стране " << country.name
-           << "! " << infectedCount << " человек инфицировано.";
+        ss << "First infection in " << country.name
+           << "! " << infectedCount << " people infected.";
         result.description = ss.str();
     }
 
@@ -147,7 +145,6 @@ EventResult EventGenerator::tryTransportMovement(World& world) {
         return result;
     }
 
-    // Выбираем случайное активное соединение
     std::vector<size_t> activeConnections;
     for (size_t i = 0; i < world.connections.size(); ++i) {
         if (world.connections[i].isActive) {
@@ -156,53 +153,56 @@ EventResult EventGenerator::tryTransportMovement(World& world) {
     }
 
     if (activeConnections.empty()) {
-        return result; // Все границы закрыты
+        return result;
     }
 
     size_t connIdx = activeConnections[static_cast<size_t>(
         randomInt(0, static_cast<int>(activeConnections.size()) - 1))];
 
-    CountryConnection& conn = world.connections[connIdx];
-    Country& fromCountry = world.countries[conn.from];
-    Country& toCountry = world.countries[conn.to];
+    auto& conn = world.connections[connIdx];
+    auto& fromCountry = world.countries[conn.from];
+    auto& toCountry = world.countries[conn.to];
 
-    // Базовый объем транспорта
-    double transportFactor = (fromCountry.params.getTransportFactor() +
-                              toCountry.params.getTransportFactor()) / 2.0;
-    double effectiveVolume = conn.transportVolume * transportFactor;
-
-    // Доля зараженных в исходной стране
     double infectedFraction = fromCountry.pop.infected /
                               std::max(1.0, fromCountry.pop.initial);
 
-    // Количество потенциально зараженных путешественников
-    double infectedTravelers = effectiveVolume * infectedFraction;
+    if (infectedFraction < 0.0001) {
+        return result;
+    }
 
-    // Шанс перевозки зараженных зависит от заразности вируса
-    double transportChance = params_.baseInfectedTransportChance +
-                             world.virus.infectivity * params_.infectivityModifier;
-    transportChance = std::min(0.95, transportChance);
+    int travelersPerDay = static_cast<int>(conn.transportVolume *
+                                           fromCountry.params.getTransportFactor());
+
+    bool transmission = checkInfectionTransmission(
+        infectedFraction,
+        travelersPerDay,
+        world.virus.infectivity,
+        1.0
+    );
 
     result.type = EventType::TransportMovement;
     result.fromCountry = conn.from;
     result.toCountry = conn.to;
+    result.routeType = RouteType::Air;
+    result.totalTravelers = travelersPerDay;
 
     std::ostringstream ss;
-    ss << "Транспорт из " << fromCountry.name << " в " << toCountry.name;
+    ss << "Transport from " << fromCountry.name
+       << " to " << toCountry.name << " (" << travelersPerDay << " passengers)";
 
-    // Проверяем, перевезли ли зараженных
-    if (infectedTravelers >= 0.5 && randomDouble() < transportChance) {
-        int infectedCount = static_cast<int>(std::max(1.0, infectedTravelers));
+    if (transmission) {
+        int infectedCount = std::max(1, static_cast<int>(
+            travelersPerDay * infectedFraction * world.virus.infectivity
+        ));
 
-        // Добавляем экспонированных в целевую страну
         toCountry.pop.exposed += infectedCount;
 
         result.transportedInfected = true;
         result.infectedTransported = infectedCount;
 
-        ss << " - перевезено " << infectedCount << " зараженных!";
+        ss << " - transported " << infectedCount << " infected!";
     } else {
-        ss << " - без зараженных.";
+        ss << " - no infected.";
     }
 
     result.description = ss.str();
@@ -210,116 +210,205 @@ EventResult EventGenerator::tryTransportMovement(World& world) {
     return result;
 }
 
-// ========== ЗАКРЫТИЕ ГРАНИЦ ==========
-EventResult EventGenerator::tryBorderClosure(World& world) {
+// ========== ПРОВЕРКА ПЕРЕДАЧИ ИНФЕКЦИИ ==========
+bool EventGenerator::checkInfectionTransmission(double infectedFraction,
+                                                  int travelers,
+                                                  double virusInfectivity,
+                                                  double routeSpeedMod) {
+    double expectedInfected = travelers * infectedFraction;
+
+    double baseChance = params_.baseInfectedTransportChance;
+    double infectivityMod = virusInfectivity * params_.infectivityModifier;
+    double totalChance = baseChance + infectivityMod * routeSpeedMod;
+
+    if (expectedInfected > 1.0) {
+        totalChance *= std::min(2.0, 1.0 + std::log(expectedInfected) * 0.3);
+    }
+
+    totalChance = std::min(0.95, totalChance);
+
+    return randomDouble() < totalChance;
+}
+
+// ========== СПЕЦИАЛЬНЫЕ СОБЫТИЯ ==========
+EventResult EventGenerator::trySpecialEvent(World& world, int day) {
     EventResult result;
 
-    // Базовый шанс закрытия границ
-    double closeChance = params_.baseBorderCloseChance;
-
-    for (size_t i = 0; i < world.countries.size(); ++i) {
-        Country& country = world.countries[i];
-
-        // Если границы уже закрыты, пропускаем
-        if (country.bordersClosed) {
-            continue;
-        }
-
-        // Процент зараженных в стране
-        double infectionRate = country.pop.infected /
-                               std::max(1.0, country.pop.initial);
-
-        // Вычисляем вероятность закрытия границ
-        double countryCloseChance = closeChance +
-            infectionRate * 10.0 * params_.awarenessModifier +
-            country.params.governmentReaction * params_.governmentReactionModifier +
-            world.humanity.awareness * params_.awarenessModifier;
-
-        // Модификатор от урбанизации (более городские страны быстрее реагируют)
-        countryCloseChance *= (0.8 + country.params.urbanization * 0.1);
-
-        if (randomDouble() < countryCloseChance) {
-            // Закрываем все границы страны
-            world.closeAllBorders(i);
-
-            result.type = EventType::BorderClosure;
-            result.closedCountry = i;
-
-            std::ostringstream ss;
-            ss << "Страна " << country.name << " закрыла границы! "
-               << "Реакция властей: " << country.params.governmentReaction
-               << ", Осведомленность: " << (world.humanity.awareness * 100) << "%";
-            result.description = ss.str();
-
-            return result;
-        }
+    if (randomDouble() > params_.specialEventChance) {
+        return result;
     }
+
+    int eventType = randomInt(0, 5);
+    SpecialEventType specType = static_cast<SpecialEventType>(eventType);
+
+    SpecialEventEffect effect;
+
+    switch(specType) {
+        case SpecialEventType::Olympics:
+            effect.type = SpecialEventType::Olympics;
+            effect.duration = randomInt(7, 14);
+            effect.infectivityMod = 1.0;
+            effect.transportMod = 2.5;
+            effect.vaccineMod = 1.0;
+            effect.bordersForcedOpen = true;
+            effect.description = "Olympic Games! Increased traffic between countries.";
+            break;
+
+        case SpecialEventType::HeatWave:
+            effect.type = SpecialEventType::HeatWave;
+            effect.duration = randomInt(5, 10);
+            effect.infectivityMod = 1.3;
+            effect.transportMod = 0.8;
+            effect.vaccineMod = 0.9;
+            effect.bordersForcedOpen = false;
+            effect.description = "Heat wave! Virus spreads faster.";
+            break;
+
+        case SpecialEventType::ColdSnap:
+            effect.type = SpecialEventType::ColdSnap;
+            effect.duration = randomInt(5, 10);
+            effect.infectivityMod = 0.7;
+            effect.transportMod = 0.7;
+            effect.vaccineMod = 1.0;
+            effect.bordersForcedOpen = false;
+            effect.description = "Cold snap! Human activity reduced.";
+            break;
+
+        case SpecialEventType::NaturalDisaster:
+            effect.type = SpecialEventType::NaturalDisaster;
+            effect.duration = randomInt(3, 7);
+            effect.infectivityMod = 1.5;
+            effect.transportMod = 1.2;
+            effect.vaccineMod = 0.8;
+            effect.bordersForcedOpen = false;
+            effect.description = "Natural disaster! Chaos and migration.";
+            break;
+
+        case SpecialEventType::MedicalConference:
+            effect.type = SpecialEventType::MedicalConference;
+            effect.duration = randomInt(3, 5);
+            effect.infectivityMod = 1.0;
+            effect.transportMod = 1.0;
+            effect.vaccineMod = 1.5;
+            effect.bordersForcedOpen = false;
+            effect.description = "Medical conference! Scientists sharing knowledge.";
+            break;
+
+        case SpecialEventType::PoliticalSummit:
+            effect.type = SpecialEventType::PoliticalSummit;
+            effect.duration = randomInt(2, 4);
+            effect.infectivityMod = 1.0;
+            effect.transportMod = 1.3;
+            effect.vaccineMod = 1.0;
+            effect.bordersForcedOpen = true;
+            effect.description = "Political summit! Borders remain open.";
+            break;
+    }
+
+    activeEvents_.emplace_back(effect, effect.duration);
+
+    result.type = EventType::SpecialEvent;
+    result.specialEvent = effect;
+    result.description = effect.description;
 
     return result;
 }
 
-// ========== НАЧИСЛЕНИЕ DNA ==========
-EventResult EventGenerator::tryDNAGrant(World& world, int day,
-                                        int pathogenDNA, int humanityDNA) {
-    (void)pathogenDNA;
-    (void)humanityDNA;
+// ========== ОБНОВЛЕНИЕ АКТИВНЫХ СОБЫТИЙ ==========
+void EventGenerator::updateActiveEvents(World& world) {
+    for (auto it = activeEvents_.begin(); it != activeEvents_.end();) {
+        it->daysRemaining--;
 
+        if (it->effect.bordersForcedOpen) {
+            for (auto& conn : world.connections) {
+                conn.isActive = true;
+            }
+            for (auto& country : world.countries) {
+                country.bordersClosed = false;
+                country.borderOpenness = 1.0;
+            }
+        }
+
+        if (it->daysRemaining <= 0) {
+            it = activeEvents_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+// ========== ВОЗМОЖНОСТЬ ПОЛУЧИТЬ DNA ==========
+EventResult EventGenerator::tryDNAClickOpportunity(World& world, int day) {
     EventResult result;
 
-    // Проверяем интервал
-    if (day - lastDNAGrantDay_ < params_.dnaGrantInterval) {
+    if (day - lastDNAGrantDay_ < params_.minDaysBetweenDNA) {
         return result;
     }
 
-    // Проверяем шанс
-    if (randomDouble() > params_.dnaGrantChance) {
+    if (randomDouble() > params_.dnaClickChance) {
         return result;
     }
 
-    // Обновляем день последнего начисления
-    lastDNAGrantDay_ = day;
-
-    // Выбираем игрока случайно или на основе достижений
-    int playerIndex = randomInt(0, 1);
-    int dnaAmount = params_.baseDNAAmount + randomInt(0, 3);
-
-    // Бонусы за достижения
-    if (playerIndex == 0) { // Pathogen
-        // Считаем общее количество зараженных
-        double totalInfected = 0;
-        for (const auto& country : world.countries) {
-            totalInfected += country.pop.infected + country.pop.exposed;
-        }
-
-        // Бонус за массовое заражение
-        if (totalInfected > 1000000) {
-            dnaAmount += params_.pathogenDNAFromInfections;
-        }
-
-        result.playerIndex = 0;
-    } else { // Humanity
-        // Бонус за прогресс вакцины
-        if (world.vaccine.progress > 50.0) {
-            dnaAmount += params_.humanityDNAFromVaccine;
-        }
-
-        // Дополнительный бонус за готовую вакцину
-        if (world.vaccine.isReady) {
-            dnaAmount += 3;
-        }
-
-        result.playerIndex = 1;
+    int countryIdx = selectRandomInfectedCountry(world);
+    if (countryIdx < 0) {
+        return result;
     }
 
-    result.type = EventType::DNAGrant;
+    const auto& country = world.countries[static_cast<size_t>(countryIdx)];
+
+    double infectionRate = (country.pop.infected + country.pop.exposed) /
+                           std::max(1.0, country.pop.initial);
+    int dnaAmount = params_.baseDNAAmount + static_cast<int>(infectionRate * 20);
+    dnaAmount = std::max(1, dnaAmount);
+
+    result.type = EventType::DNAClickOpportunity;
+    result.highlightedCountry = static_cast<size_t>(countryIdx);
     result.dnaAmount = dnaAmount;
+    result.playerIndex = -1;
 
     std::ostringstream ss;
-    ss << "Игрок " << (playerIndex == 0 ? "Pathogen" : "Humanity")
-       << " получил " << dnaAmount << " DNA!";
+    ss << "Outbreak in " << country.name << "! "
+       << "First player to click gets " << dnaAmount << " DNA!";
+    result.description = ss.str();
+
+    lastDNAGrantDay_ = day;
+
+    return result;
+}
+
+// ========== ОБРАБОТКА КЛИКА ==========
+int EventGenerator::handleCountryClick(size_t countryIdx, int playerIndex) {
+    return params_.baseDNAAmount;
+}
+
+// ========== АПГРЕЙД ЗАКРЫТИЯ ГРАНИЦ ==========
+EventResult EventGenerator::tryBorderUpgrade(World& world, int humanityDNA) {
+    EventResult result;
+
+    if (humanityDNA < params_.borderUpgradeCost) {
+        return result;
+    }
+
+    if (randomDouble() > params_.borderUpgradeChance) {
+        return result;
+    }
+
+    result.type = EventType::BorderClosureUpgrade;
+    result.dnaAmount = -params_.borderUpgradeCost;
+    result.playerIndex = 1;
+
+    std::ostringstream ss;
+    ss << "Humanity purchased border closure upgrade for "
+       << params_.borderUpgradeCost << " DNA!";
     result.description = ss.str();
 
     return result;
 }
+
+// ========== КОНСТРУКТОР SPECIAL EVENT EFFECT ==========
+SpecialEventEffect::SpecialEventEffect()
+    : type(SpecialEventType::Olympics), duration(0),
+      infectivityMod(1.0), transportMod(1.0), vaccineMod(1.0),
+      bordersForcedOpen(false) {}
 
 } // namespace plague
