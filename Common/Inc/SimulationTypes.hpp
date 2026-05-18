@@ -2,8 +2,37 @@
 
 #include <vector>
 #include <string>
+#include <cstdint>
 
 namespace plague {
+
+// ========== ТИПЫ СОБЫТИЙ ДЛЯ КЛИЕНТА ==========
+enum class EventType {
+    NEWS_FIRST_INFECTION,      // Первое заражение в стране
+    NEWS_COUNTRY_INFECTED,     // Вся страна заражена (>95%)
+    NEWS_FIRST_DEATH,          // Первая смерть от вируса
+    NEWS_COUNTRY_EXTINCT,      // Страна вымерла
+    NEWS_DISASTER,             // Природное бедствие
+    NEWS_EVENT_GLOBAL,         // Глобальное событие (Олимпиада и т.д.)
+    ACTION_DNA_CLICK,          // Требуется клик для получения DNA
+    ACTION_BORDER_UPGRADE      // Предложение улучшить границы
+};
+
+// ========== НОВОСТЬ/СОБЫТИЕ ДЛЯ ОТПРАВКИ КЛИЕНТУ ==========
+struct GameNews {
+    EventType type;
+    std::string title;
+    std::string message;
+    std::string countryName;
+    uint64_t countryId;
+    uint64_t eventId;
+    int day;
+
+    GameNews(EventType t, const std::string& ttl, const std::string& msg,
+             const std::string& cName = "", uint64_t cId = 0, uint64_t eId = 0, int d = 0)
+        : type(t), title(ttl), message(msg), countryName(cName),
+          countryId(cId), eventId(eId), day(d) {}
+};
 
 // ========== ПАРАМЕТРЫ СТРАНЫ ==========
 struct CountryParams {
@@ -12,29 +41,22 @@ struct CountryParams {
     int urbanization;       // 1-5: степень урбанизации
     int governmentReaction; // 1-5: скорость реакции властей
 
-    // Влияние параметров на игру:
-    // - medicine: влияет на количество ученых и скорость распространения вакцины
-    // - climate: влияет на скорость распространения вируса
-    // - urbanization: влияет на количество транспорта въезжающего/выезжающего
-    // - governmentReaction: влияет на скорость закрытия границ
-
-    double getScienceFactor() const;      // Коэффициент количества ученых
-    double getVaccineSpeed() const;       // Скорость распространения вакцины
-    double getTransportFactor() const;    // Объем транспорта
-    double getBorderCloseSpeed() const;   // Скорость закрытия границ
+    double getScienceFactor() const;
+    double getVaccineSpeed() const;
+    double getTransportFactor() const;
+    double getBorderCloseSpeed() const;
 };
 
 // ========== НАСЕЛЕНИЕ (SEIR модель) ==========
 struct Population {
-    double initial;         // Стартовое количество населения
-    double susceptible;     // S - Восприимчивые (еще не заражены)
-    double exposed;         // E - Зараженные, но не заразные (инкубационный период)
-    double infected;        // I - Зараженные и заразные
-    double recovered;       // R - Вылеченные или вакцинированные
-    double dead;            // D - Умершие
+    double initial;
+    double susceptible;
+    double exposed;
+    double infected;
+    double recovered;
+    double dead;
 
-    double alive() const;   // Общее количество живых
-
+    double alive() const;
     Population(double total = 0.0);
 };
 
@@ -43,76 +65,81 @@ struct Country {
     std::string name;
     CountryParams params;
     Population pop;
-    double borderOpenness;  // 0.0 = полностью закрыта, 1.0 = полностью открыта
-    bool bordersClosed;     // Флаг полного закрытия границ
+    double borderOpenness;
+    bool bordersClosed;
 
     Country();
 };
 
 // ========== ВИРУС ==========
 struct Virus {
-    double infectivity;         // Заразность (базовый коэффициент передачи β)
-    double lethality;           // Летальность (базовый процент смертности)
-    double vaccineDifficulty;   // Сложность изготовления вакцины (0-1)
-    double incubationPeriod;    // Период инкубации в днях (E -> I)
-    double infectiousPeriod;    // Период заразности в днях (I -> R/D)
-    std::vector<double> climateModifiers; // Модификаторы для разных климатов
+    double infectivity;
+    double lethality;
+    double vaccineDifficulty;
+    double incubationPeriod;
+    double infectiousPeriod;
+    std::vector<double> climateModifiers;
 
     double getClimateModifier(int climateLevel) const;
 };
 
 // ========== ЧЕЛОВЕЧЕСТВО ==========
 struct Humanity {
-    double scientistCommitment;     // Вовлеченность ученых (0-1)
-                                    // Влияет на скорость разработки вакцины
-    double awareness;               // Осведомленность (0-1)
-                                    // Влияет на скорость закрытия границ
-    double developmentDifficultyMod;// Модификатор сложности разработки вакцины
+    double scientistCommitment;
+    double awareness;
+    double developmentDifficultyMod;
 
-    double getGlobalScientists() const;         // Количество ученых
-    double getBorderCloseThreshold() const;     // Порог для закрытия границ
+    double getGlobalScientists() const;
+    double getBorderCloseThreshold() const;
 };
 
 // ========== ВАКЦИНА ==========
 struct Vaccine {
-    double progress;          // Степень готовности (0-100%)
-    double spreadRate;        // Скорость распространения вакцинации
-    bool isReady;             // Готова ли к применению
-    double efficacy;          // Эффективность (0-1)
+    double progress;
+    double spreadRate;
+    bool isReady;
+    double efficacy;
 
     Vaccine();
-    void updateProgress(double delta);  // Обновить прогресс
+    void updateProgress(double delta);
 };
 
 // ========== СВЯЗЬ МЕЖДУ СТРАНАМИ ==========
 struct CountryConnection {
-    size_t from;              // Индекс страны-источника
-    size_t to;                // Индекс страны-назначения
-    double transportVolume;   // Объем транспорта (людей в день) - для обратной совместимости
-    bool isActive;            // Активна ли связь (границы открыты)
+    size_t from;
+    size_t to;
+    double transportVolume;
+    bool isActive;
 
-    // Связь обрывается при закрытии границ одной из стран
     CountryConnection(size_t f = 0, size_t t = 0, double volume = 1000.0);
 };
 
 // ========== МИР ==========
 class World {
 public:
-    std::vector<Country> countries;         // Список стран
-    std::vector<CountryConnection> connections; // Транспортные связи
-    Virus virus;                            // Параметры вируса
-    Humanity humanity;                      // Параметры человечества
-    Vaccine vaccine;                        // Параметры вакцины
+    std::vector<Country> countries;
+    std::vector<CountryConnection> connections;
+    Virus virus;
+    Humanity humanity;
+    Vaccine vaccine;
 
-    // Управление границами
+    std::vector<GameNews> newsQueue;
+    uint64_t nextEventId;
+
+    World() : nextEventId(1) {}
+
+    void addNews(const GameNews& news) {
+        newsQueue.push_back(news);
+    }
+
     int getCountryIndex(const std::string& name) const;
-    void closeBorder(size_t i, size_t j);       // Закрыть границу между двумя странами
-    void closeAllBorders(size_t countryIdx);    // Закрыть все границы страны
-    void checkBorderClosures();                 // Автоматическая проверка закрытия границ
+    void closeBorder(size_t i, size_t j);
+    void closeAllBorders(size_t countryIdx);
+    void checkBorderClosures();
 };
 
-// ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
 std::vector<CountryConnection> buildInitialConnections(const std::vector<Country>& countries);
 World initializeWorld();
+void simulateDay(World& world);  // Функция симуляции одного дня
 
 } // namespace plague
