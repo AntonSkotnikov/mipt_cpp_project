@@ -905,12 +905,6 @@ void GameScreen::updateSnapshot(const GameSnapshot & snapshot) {
     if (pointsInfo_ != nullptr) {
         pointsInfo_->changeLine("Points: " + std::to_string(snapshot_.playerInfo.points));
     }
-    if (infectedInfo_ != nullptr) {
-        infectedInfo_->changeLine("Infected: " + formatCount(totalInfectedCount(snapshot_.countries)));
-    }
-    if (deadInfo_ != nullptr) {
-        deadInfo_->changeLine("Dead: " + formatCount(totalDeadCount(snapshot_.countries)));
-    }
     if (cureInfo_ != nullptr) {
         const int progress = std::clamp(static_cast<int>(snapshot_.cureProgress), 0, 100);
         cureInfo_->changeLine("Cure: " + std::to_string(progress) + "%");
@@ -919,6 +913,7 @@ void GameScreen::updateSnapshot(const GameSnapshot & snapshot) {
         dayInfo_->changeLine("Day: " + std::to_string(snapshot_.day));
     }
 
+    updatePopulationInfo();
     updateSelectedCountryInfo();
 }
 
@@ -1016,6 +1011,28 @@ void GameScreen::toggleNavigationMode() {
     focusCountry(indexOfSelectedCountry < 0 ? 0 : static_cast<std::size_t>(indexOfSelectedCountry));
 }
 
+void GameScreen::updatePopulationInfo() {
+    if (infectedInfo_ == nullptr || deadInfo_ == nullptr) {
+        return;
+    }
+
+    const bool hasSelectedCountry =
+        indexOfSelectedCountry >= 0 &&
+        static_cast<std::size_t>(indexOfSelectedCountry) < lowMapCountries.size();
+
+    if (hasSelectedCountry) {
+        const std::string_view countryName = lowMapCountries[static_cast<std::size_t>(indexOfSelectedCountry)];
+        if (const Country * country = findCountry(snapshot_.countries, countryName)) {
+            infectedInfo_->changeLine("Infected: " + formatCount(countryInfectedCount(*country)));
+            deadInfo_->changeLine("Dead: " + formatCount(countryDeadCount(*country)));
+            return;
+        }
+    }
+
+    infectedInfo_->changeLine("Infected: " + formatCount(totalInfectedCount(snapshot_.countries)));
+    deadInfo_->changeLine("Dead: " + formatCount(totalDeadCount(snapshot_.countries)));
+}
+
 void GameScreen::updateSelectedCountryInfo() {
     if (selectedCountryInfo_ == nullptr) {
         return;
@@ -1023,21 +1040,13 @@ void GameScreen::updateSelectedCountryInfo() {
 
     if (indexOfSelectedCountry < 0) {
         selectedCountryInfo_->changeLine("World overview");
+        updatePopulationInfo();
         return;
     }
 
     const std::string_view countryName = lowMapCountries[static_cast<std::size_t>(indexOfSelectedCountry)];
-    const Country * country = findCountry(snapshot_.countries, countryName);
-    if (country == nullptr) {
-        selectedCountryInfo_->changeLine(std::string("Country: ") + std::string(countryName));
-        return;
-    }
-
-    selectedCountryInfo_->changeLine(
-        std::string(countryName) +
-        " I: " + formatCount(countryInfectedCount(*country)) +
-        " D: " + formatCount(countryDeadCount(*country))
-    );
+    selectedCountryInfo_->changeLine(std::string("Country: ") + std::string(countryName));
+    updatePopulationInfo();
 }
 
 request::UIRequest GameScreen::handleInput(int key) {

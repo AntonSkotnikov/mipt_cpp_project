@@ -116,6 +116,7 @@ private:
     void focusNextActionButton();
     void focusPrevActionButton();
     void toggleNavigationMode();
+    void updatePopulationInfo();
     void updateSelectedCountryInfo();
 };
 
