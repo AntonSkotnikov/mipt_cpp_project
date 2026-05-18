@@ -120,7 +120,7 @@ World initializeWorld() {
 
     // Параметры вируса
     world.virus.infectivity = 0.3;
-    world.virus.lethality = 0.02;
+    world.virus.lethality = 0.0;
     world.virus.vaccineDifficulty = 0.5;
     world.virus.incubationPeriod = 5.0;    // 5 дней инкубации
     world.virus.infectiousPeriod = 14.0;   // 14 дней заразности
@@ -281,18 +281,41 @@ void updateEpidemicModel(World& world) {
         // Новые экспонированные (S -> E)
         double newExposed = effectiveBeta * (S / N) * I;
         if (newExposed > S) newExposed = S;
+        if (newExposed < 0) newExposed = 0;
 
         // Переход из экспонированных в заразные (E -> I)
         double becomingInfectious = sigma * E;
+        if (becomingInfectious > E) becomingInfectious = E;
 
         // Выздоровления и смерти (I -> R/D)
         double medicineFactor = 1.0 + country.params.medicine * 0.3;
         double effectiveLethality = virus.lethality / medicineFactor;
-        double effectiveRecovery = gamma * (1.0 - effectiveLethality);
-        double effectiveDeath = gamma * effectiveLethality;
+        // Базовый процент выздоровления очень мал без вакцины и без высокой осведомленности
+        // Осведомленность позволяет людям лучше защищаться и лечиться
+        double baseRecoveryRate = 0.02; // 2% в день - базовое естественное выздоровление
+        double awarenessBonus = world.humanity.awareness * 0.05; // До +5% при полной осведомленности
+        double naturalRecoveryRate = baseRecoveryRate + awarenessBonus;
 
-        double newRecovered = effectiveRecovery * I;
-        double newDeaths = effectiveDeath * I;
+        // Если вакцина готова, добавляем её эффект выздоровления через лечение
+        double vaccineRecoveryBonus = vaccine.isReady ? 0.1 : 0.0;
+
+        // Итоговый процент выздоровления
+        double recoveryRate = naturalRecoveryRate + vaccineRecoveryBonus;
+
+        // Смертность от вируса
+        double deathRate = gamma * effectiveLethality;
+
+        // Новые смерти и выздоровления
+        double newDeaths = deathRate * I;
+        double newRecovered = recoveryRate * I;
+
+        // Ограничиваем, чтобы не убрать больше людей чем есть в I
+        double totalRemoving = newDeaths + newRecovered;
+        if (totalRemoving > I) {
+            double scale = I / totalRemoving;
+            newDeaths *= scale;
+            newRecovered *= scale;
+        }
 
         // --- Вакцинация (если готова) ---
         double newVaccinated = 0.0;

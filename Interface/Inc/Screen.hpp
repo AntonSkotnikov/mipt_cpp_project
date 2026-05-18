@@ -179,8 +179,13 @@ public:
     PathogenInfoScreen(Config & cfg, Window & win);
 
     void resize() override;
+    void updateSnapshot(const GameSnapshot & snapshot);
 private:
+    Info * pathogenInfo_ = nullptr;
+    GameSnapshot snapshot_{};
+
     void layout();
+    void updateInfo();
 };
 
 class CureInfoScreen final : public InfoNavigationScreen {
@@ -188,8 +193,13 @@ public:
     CureInfoScreen(Config & cfg, Window & win);
 
     void resize() override;
+    void updateSnapshot(const GameSnapshot & snapshot);
 private:
+    Info * cureInfo_ = nullptr;
+    GameSnapshot snapshot_{};
+
     void layout();
+    void updateInfo();
 };
 
 class CountryScreen final : public InfoNavigationScreen {
@@ -197,9 +207,11 @@ public:
     CountryScreen(Config & cfg, Window & win);
 
     void resize() override;
+    void updateSnapshot(const GameSnapshot & snapshot);
 private:
     Menu * countryMenu_ = nullptr;
     Info * countryInfo_ = nullptr;
+    GameSnapshot snapshot_{};
 
     void layout();
     void updateSelectedCountryInfo();
@@ -210,15 +222,20 @@ class NewsScreen final : public InfoNavigationScreen {
 public:
     NewsScreen(Config & cfg, Window & win);
 
+    request::UIRequest handleInput(int key) override;
     void resize() override;
     void updateSnapshot(const GameSnapshot & snapshot);
 private:
     Info * newsInfo_ = nullptr;
     GameSnapshot snapshot_{};
+    std::vector<std::string> newsLines_{};
+    std::size_t scrollOffset_ = 0;
 
     void layout();
     void layoutBody() override;
     void updateNews();
+    void renderNews();
+    void scrollNews(int delta);
 };
 
 class UpgradeScreen final : public Screen {

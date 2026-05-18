@@ -110,6 +110,57 @@ constexpr std::array<const char *, 3> upgradeTabLabels = {
     "Abilities"
 };
 
+struct CountryParamsPresentation {
+    const char * name;
+    CountryParams params;
+};
+
+constexpr std::array<CountryParamsPresentation, 29> countryParamsPresentations = {{
+    {"AUSTRALIA",          {5, 4, 5, 4}},
+    {"BELARUS",            {3, 2, 3, 3}},
+    {"BRAZIL",             {2, 5, 4, 2}},
+    {"CANADA",             {5, 1, 4, 4}},
+    {"CHINA",              {3, 3, 5, 5}},
+    {"EAST",               {2, 4, 3, 2}},
+    {"GREENLAND",          {3, 1, 1, 3}},
+    {"ICELAND",            {4, 1, 2, 4}},
+    {"INDIA",              {2, 5, 4, 2}},
+    {"JAPAN",              {5, 3, 5, 5}},
+    {"KAZAKHSTAN",         {3, 2, 3, 3}},
+    {"M AFRICA",           {2, 5, 2, 2}},
+    {"MADAGASCAR",         {2, 5, 2, 2}},
+    {"MEXICO",             {3, 4, 4, 3}},
+    {"MIDDLE EAST",        {3, 5, 4, 3}},
+    {"MONGOLIA",           {2, 2, 2, 3}},
+    {"N AFRICA",           {2, 5, 3, 2}},
+    {"N SOUTH AMERICA",    {2, 5, 3, 2}},
+    {"NEW ZEALAND",        {5, 3, 3, 5}},
+    {"OCEANIA",            {2, 5, 2, 2}},
+    {"RUSSIA",             {3, 2, 3, 3}},
+    {"S AFRICA",           {3, 4, 3, 3}},
+    {"SCANDINAVIA",        {5, 1, 4, 5}},
+    {"SW SOUTH AMERICA",   {3, 3, 3, 3}},
+    {"TURKEY",             {3, 4, 4, 3}},
+    {"UK",                 {5, 2, 5, 4}},
+    {"UKRAINE",            {3, 2, 3, 3}},
+    {"USA",                {5, 3, 5, 3}},
+    {"W EUROPE",           {5, 3, 5, 4}}
+}};
+
+inline CountryParams countryParamsForName(std::string_view name) {
+    const auto it = std::find_if(
+        countryParamsPresentations.begin(),
+        countryParamsPresentations.end(),
+        [name](const CountryParamsPresentation & item) {
+            return item.name == name;
+        }
+    );
+
+    return it == countryParamsPresentations.end()
+        ? CountryParams{3, 3, 3, 3}
+        : it->params;
+}
+
 inline std::string formatCount(std::uint64_t value) {
     std::string text = std::to_string(value);
     for (int pos = static_cast<int>(text.size()) - 3; pos > 0; pos -= 3) {
@@ -128,6 +179,26 @@ inline std::uint64_t countryInfectedCount(const Country & country) {
 
 inline std::uint64_t countryDeadCount(const Country & country) {
     return populationCount(country.pop.dead);
+}
+
+inline std::uint64_t countryAliveCount(const Country & country) {
+    return populationCount(country.pop.alive());
+}
+
+inline std::uint64_t totalPopulation(const std::vector<Country> & countries) {
+    std::uint64_t total = 0;
+    for (const Country & country : countries) {
+        total += populationCount(country.pop.initial);
+    }
+    return total;
+}
+
+inline std::uint64_t totalAliveCount(const std::vector<Country> & countries) {
+    std::uint64_t total = 0;
+    for (const Country & country : countries) {
+        total += countryAliveCount(country);
+    }
+    return total;
 }
 
 inline std::uint64_t totalInfectedCount(const std::vector<Country> & countries) {
@@ -253,7 +324,12 @@ const std::array<SubtypePresentation, 1> humanitySubtypes = {{
     {
         HumanitySubtype::ResearchInstitute,
         "Research Institute",
-        "WIP"
+        "Humanity focuses on containment, research, and survival.\n\n"
+        "Research Institute starts with disciplined laboratories and strong medical coordination. "
+        "Your priorities are to slow global spread, keep borders under control, and push cure progress "
+        "before the pathogen overwhelms healthcare systems.\n\n"
+        "Watch infection pressure, country medicine ratings, government reaction, and cure progress. "
+        "Use upgrades to improve response speed and reduce the pathogen's room to grow."
     }
 }};
 
@@ -261,7 +337,11 @@ const std::array<SubtypePresentation, 1> pathogenSubtypes = {{
     {
         PathogenSubtype::Virus,
         "Virus",
-        "WIP"
+        "The pathogen wins by spreading faster than humanity can understand and contain it.\n\n"
+        "Virus is a direct, adaptable infection profile. It benefits from early expansion, pressure on "
+        "dense countries, and careful timing before borders close or cure progress accelerates.\n\n"
+        "Watch infected countries, transport links, closed borders, and cure pressure. Use upgrades to "
+        "strengthen transmission, disrupt clinics, and survive hostile climates."
     }
 }};
 

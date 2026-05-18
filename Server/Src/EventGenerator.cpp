@@ -405,7 +405,18 @@ EventResult EventGenerator::tryDNAClickOpportunity(World& world, int day) {
 
     double infectionRate = (country.pop.infected + country.pop.exposed) /
                            std::max(1.0, country.pop.initial);
-    int dnaAmount = params_.baseDNAAmount + static_cast<int>(infectionRate * 20);
+    
+    // Random base amount: 3-8 DNA points
+    int randomBase = randomInt(3, 8);
+
+    // Time bonus: more DNA as days pass (approximately +1 DNA per 5 days)
+    int timeBonus = day / 5;
+
+    // Infection rate bonus: more infected = more DNA
+    int infectionBonus = static_cast<int>(infectionRate * 15);
+
+    // Total DNA with randomization and scaling
+    int dnaAmount = randomBase + timeBonus + infectionBonus;
     dnaAmount = std::max(1, dnaAmount);
 
     result.eventId = world.nextEventId++;
