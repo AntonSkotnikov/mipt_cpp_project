@@ -17,6 +17,7 @@ using UserAction = request::UIRequest;
 enum class ClientFlowState {
     Disconnected,
     Connecting,
+    RoomBrowsing,
     WaitingForRole,
     ChoosingSubtype,
     LobbyWaiting,

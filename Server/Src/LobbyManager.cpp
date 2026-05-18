@@ -1,6 +1,7 @@
 #include "LobbyManager.hpp"
 
 #include "PlagueServer.hpp"
+#include "UpgradeCatalog.hpp"
 #include "logger.hpp"
 
 #include <algorithm>
@@ -43,6 +44,18 @@ const char* lobbyStateToJson(LobbyState state) {
     return "WaitingForSecond";
 }
 
+const char* upgradeCategoryToJson(UpgradeCategory category) {
+    switch (category) {
+    case UpgradeCategory::Transmission:
+        return "Transmission";
+    case UpgradeCategory::Clinic:
+        return "Clinic";
+    case UpgradeCategory::Abilities:
+        return "Abilities";
+    }
+    return "Transmission";
+}
+
 std::string jsonEscape(std::string_view text) {
     std::string escaped;
     escaped.reserve(text.size());
@@ -78,6 +91,28 @@ std::uint64_t nonNegativeCount(double value) {
         return 0;
     }
     return static_cast<std::uint64_t>(std::llround(value));
+}
+
+void appendStringArray(std::ostringstream& payload, const std::vector<std::string>& values) {
+    payload << '[';
+    for (std::size_t i = 0; i < values.size(); ++i) {
+        if (i > 0) {
+            payload << ',';
+        }
+        payload << '"' << jsonEscape(values[i]) << '"';
+    }
+    payload << ']';
+}
+
+void appendUpgrade(std::ostringstream& payload, const UpgradeDefinition& upgrade) {
+    payload << R"({"id":")" << jsonEscape(upgrade.id) << '"'
+            << R"(,"category":")" << upgradeCategoryToJson(upgrade.category) << '"'
+            << R"(,"title":")" << jsonEscape(upgrade.title) << '"'
+            << R"(,"cost":)" << upgrade.cost
+            << R"(,"description":")" << jsonEscape(upgrade.description) << '"'
+            << R"(,"dependencies":)";
+    appendStringArray(payload, upgrade.dependencies);
+    payload << '}';
 }
 
 PlayerSubtype defaultSubtypeFor(PlayerRole role) {
@@ -144,8 +179,108 @@ LobbyManager::~LobbyManager() {
     stopGameLoop();
 }
 
+LobbyActionResult LobbyManager::listRooms(ClientSession& session) {
+    LobbyActionResult result;
+    std::lock_guard<std::mutex> lock(mutex_);
+    session.connected = true;
+    if (!containsSession(session) &&
+        std::find(roomBrowsers_.begin(), roomBrowsers_.end(), &session) == roomBrowsers_.end()) {
+        roomBrowsers_.push_back(&session);
+    }
+    result.payload = roomListPayloadLocked("RoomList");
+    return result;
+}
+
+LobbyActionResult LobbyManager::createRoom(ClientSession& session,
+                                           const std::string& roomName,
+                                           const std::string& password) {
+    LobbyActionResult result;
+
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+
+        if (containsSession(session)) {
+            result.payload = lobbyPayloadFor(session, "AlreadyConnected");
+            return result;
+        }
+
+        if (roomName.empty()) {
+            result.success = false;
+            result.errorMessage = "Room name is empty";
+            result.payload = roomListPayloadLocked("CreateRoomRejected");
+            return result;
+        }
+
+        if (roomExistsLocked()) {
+            result.success = false;
+            result.errorMessage = "Room already exists";
+            result.payload = roomListPayloadLocked("CreateRoomRejected");
+            return result;
+        }
+
+        if (roomIsFullLocked()) {
+            result.success = false;
+            result.errorMessage = "Room is full";
+            result.payload = roomListPayloadLocked("CreateRoomRejected");
+            return result;
+        }
+
+        if (!roomExistsLocked()) {
+            roomName_ = roomName;
+            roomPassword_ = password;
+            LOG_INFO("Room created: name=%s private=%d",
+                     roomName_.c_str(),
+                     roomPassword_.empty() ? 0 : 1);
+        }
+    }
+
+    return addPlayer(session);
+}
+
+LobbyActionResult LobbyManager::joinRoom(ClientSession& session,
+                                         const std::string& roomName,
+                                         const std::string& password) {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+
+        if (containsSession(session)) {
+            LobbyActionResult result;
+            result.payload = lobbyPayloadFor(session, "AlreadyConnected");
+            return result;
+        }
+
+        if (!roomExistsLocked() || roomName_ != roomName) {
+            LobbyActionResult result;
+            result.success = false;
+            result.errorMessage = "Room does not exist";
+            result.payload = roomListPayloadLocked("JoinRoomRejected");
+            return result;
+        }
+
+        if (!roomPassword_.empty() && roomPassword_ != password) {
+            LobbyActionResult result;
+            result.success = false;
+            result.errorMessage = "Wrong room password";
+            result.payload = roomListPayloadLocked("JoinRoomRejected");
+            return result;
+        }
+
+        if (roomIsFullLocked()) {
+            LobbyActionResult result;
+            result.success = false;
+            result.errorMessage = "Room is full";
+            result.payload = roomListPayloadLocked("JoinRoomRejected");
+            return result;
+        }
+    }
+
+    return addPlayer(session);
+}
+
 LobbyActionResult LobbyManager::addPlayer(ClientSession& session) {
     ClientSession* opponent = nullptr;
+    std::vector<ClientSession*> roomBrowsers;
+    std::string roomBrowsersPayload;
     std::string opponentPayload;
     LobbyActionResult result;
 
@@ -164,10 +299,11 @@ LobbyActionResult LobbyManager::addPlayer(ClientSession& session) {
             LOG_WARNING("Lobby is full, rejecting player: fd=%d", session.socket_fd);
             result.success = false;
             result.errorMessage = "Lobby is full";
-            result.payload = R"({"screen":"MainMenu","error":"Lobby is full"})";
+            result.payload = roomListPayloadLocked("JoinRoomRejected");
             return result;
         }
 
+        removeBrowserLocked(session);
         session.connected = true;
         session.points = 100;
         session.isReady = false;
@@ -202,10 +338,17 @@ LobbyActionResult LobbyManager::addPlayer(ClientSession& session) {
         }
 
         result.payload = lobbyPayloadFor(session, "RoleAssigned");
+        roomBrowsers = roomBrowsers_;
+        roomBrowsersPayload = roomListPayloadLocked("RoomList");
     }
 
     if (opponent != nullptr) {
         notifySession(*opponent, opponentPayload);
+    }
+    for (ClientSession* browser : roomBrowsers) {
+        if (browser != nullptr) {
+            notifySession(*browser, roomBrowsersPayload);
+        }
     }
 
     return result;
@@ -405,15 +548,16 @@ LobbyActionResult LobbyManager::selectCountry(ClientSession& session, const std:
         }
 
         bool infectedSelectedCountry = false;
-        if (session.role == PlayerRole::Pathogen && !initialInfectionSelected_) {
+        if (!initialInfectionSelected_) {
             Country& country = world_.countries[static_cast<std::size_t>(countryIndex)];
             const double infected = std::min(country.pop.susceptible, 1000.0);
             country.pop.susceptible -= infected;
             country.pop.infected += infected;
             initialInfectionSelected_ = true;
             infectedSelectedCountry = infected > 0.0;
-            LOG_INFO("Initial infection selected: country=%s infected=%.0f fd=%d",
+            LOG_INFO("Initial infection selected: country=%s role=%s infected=%.0f fd=%d",
                      countryName.c_str(),
+                     roleToJson(session.role),
                      infected,
                      session.socket_fd);
         } else {
@@ -441,6 +585,9 @@ LobbyActionResult LobbyManager::selectCountry(ClientSession& session, const std:
 
 void LobbyManager::removePlayer(ClientSession& session) {
     ClientSession* opponent = nullptr;
+    std::string opponentPayload;
+    std::vector<ClientSession*> roomBrowsers;
+    std::string roomBrowsersPayload;
     bool wasInGame = false;
 
     {
@@ -454,6 +601,7 @@ void LobbyManager::removePlayer(ClientSession& session) {
             players_[1] = nullptr;
         } else {
             session.connected = false;
+            removeBrowserLocked(session);
             LOG_DEBUG("Remove ignored: player is not in lobby fd=%d", session.socket_fd);
             return;
         }
@@ -469,7 +617,21 @@ void LobbyManager::removePlayer(ClientSession& session) {
             opponent->isReady = false;
             opponent->wantsSideChange = false;
             opponent->lobbyState = LobbyState::WaitingForSecond;
+            opponentPayload = wasInGame
+                ? R"({"screen":"EndScreen","event":"OpponentDisconnected","winner":"none","reason":"opponent_disconnected"})"
+                : lobbyPayloadFor(*opponent, "OpponentDisconnected");
         }
+
+        if (players_[0] == nullptr && players_[1] == nullptr) {
+            roomName_.clear();
+            roomPassword_.clear();
+            worldInitialized_ = false;
+            initialInfectionSelected_ = false;
+            gameDay_ = 1;
+        }
+
+        roomBrowsers = roomBrowsers_;
+        roomBrowsersPayload = roomListPayloadLocked("RoomList");
     }
 
     if (wasInGame) {
@@ -479,8 +641,12 @@ void LobbyManager::removePlayer(ClientSession& session) {
 
     if (opponent != nullptr) {
         LOG_INFO("Notifying remaining player about opponent disconnect: fd=%d", opponent->socket_fd);
-        notifySession(*opponent,
-                      R"({"screen":"EndScreen","event":"OpponentDisconnected","winner":"none","reason":"opponent_disconnected"})");
+        notifySession(*opponent, opponentPayload);
+    }
+    for (ClientSession* browser : roomBrowsers) {
+        if (browser != nullptr) {
+            notifySession(*browser, roomBrowsersPayload);
+        }
     }
 }
 
@@ -508,6 +674,40 @@ bool LobbyManager::bothReady() const {
            players_[1]->isReady &&
            players_[0]->hasChosenSubtype &&
            players_[1]->hasChosenSubtype;
+}
+
+bool LobbyManager::roomExistsLocked() const {
+    return !roomName_.empty();
+}
+
+bool LobbyManager::roomIsFullLocked() const {
+    return players_[0] != nullptr && players_[1] != nullptr;
+}
+
+void LobbyManager::removeBrowserLocked(ClientSession& session) {
+    roomBrowsers_.erase(
+        std::remove(roomBrowsers_.begin(), roomBrowsers_.end(), &session),
+        roomBrowsers_.end());
+}
+
+std::string LobbyManager::roomListPayloadLocked(const char* event) const {
+    std::ostringstream payload;
+    payload << R"({"screen":"RoomBrowser")"
+            << R"(,"event":")" << event << '"'
+            << R"(,"rooms":[)";
+
+    if (roomExistsLocked()) {
+        const std::uint16_t players =
+            static_cast<std::uint16_t>((players_[0] != nullptr ? 1 : 0) +
+                                       (players_[1] != nullptr ? 1 : 0));
+        payload << R"({"name":")" << jsonEscape(roomName_) << '"'
+                << R"(,"privateRoom":)" << (roomPassword_.empty() ? "false" : "true")
+                << R"(,"players":)" << players
+                << R"(,"capacity":2})";
+    }
+
+    payload << R"(]})";
+    return payload.str();
 }
 
 void LobbyManager::swapRolesLocked() {
@@ -552,16 +752,16 @@ std::string LobbyManager::startPayloadFor(const ClientSession& session) const {
             << R"(,"event":"GameStart")"
             << R"(,"role":")" << roleToJson(session.role) << '"'
             << R"(,"subtype":")" << subtypeToJson(session.chosenSubtype) << '"'
-            << R"(,"day":1)"
+            << R"(,"day":)" << gameDay_
             << R"(,"points":)" << session.points
             << R"(,"availableUpgrades":[)";
 
-    if (session.role == PlayerRole::Pathogen) {
-        payload << R"({"id":"air_1","category":"Transmission","cost":10},)"
-                << R"({"id":"symptom_1","category":"Abilities","cost":15})";
-    } else {
-        payload << R"({"id":"vaccine_1","category":"Clinic","cost":10},)"
-                << R"({"id":"quarantine_1","category":"Transmission","cost":15})";
+    const std::vector<UpgradeDefinition>& upgrades = availableUpgradesFor(session.role);
+    for (std::size_t i = 0; i < upgrades.size(); ++i) {
+        if (i > 0) {
+            payload << ',';
+        }
+        appendUpgrade(payload, upgrades[i]);
     }
 
     payload << ']'
@@ -704,6 +904,8 @@ void LobbyManager::gameLoop() {
             if (stillInGame) {
                 if (worldInitialized_ && initialInfectionSelected_) {
                     simulateDay(world_);
+                }
+                if (worldInitialized_) {
                     ++gameDay_;
                 }
                 tickPayload = gameStatsPayloadLocked("Tick");

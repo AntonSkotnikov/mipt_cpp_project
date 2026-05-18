@@ -16,7 +16,10 @@ void GameState::resetForMenu() {
     std::lock_guard<std::mutex> lock(mutex_);
     snapshot_.day = 0;
     snapshot_.playerInfo.points = 0;
+    snapshot_.rooms.clear();
     snapshot_.countries.clear();
+    snapshot_.availableUpgrades.clear();
+    snapshot_.purchasedUpgrades.clear();
     snapshot_.cureProgress = 0.0;
     snapshot_.choosingSide = ChoosingSideState{};
 }
@@ -46,6 +49,16 @@ void GameState::setPlayerPoints(UpgradePointType points) {
 void GameState::setCountries(const std::vector<Country>& countries) {
     std::lock_guard<std::mutex> lock(mutex_);
     snapshot_.countries = countries;
+}
+
+void GameState::setRooms(const std::vector<RoomSummary>& rooms) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    snapshot_.rooms = rooms;
+}
+
+void GameState::setAvailableUpgrades(const std::vector<UpgradeDefinition>& upgrades) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    snapshot_.availableUpgrades = upgrades;
 }
 
 void GameState::setCureProgress(double cureProgress) {

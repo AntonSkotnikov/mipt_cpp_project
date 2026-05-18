@@ -12,6 +12,9 @@ using RequestId = std::uint32_t;
 enum class ClientCommand {
     Connect,
     Disconnect,
+    ListRooms,
+    CreateRoom,
+    JoinRoom,
     ChooseHumanity,
     ChoosePathogen,
     SelectSubtype,
@@ -40,6 +43,12 @@ inline const char* clientCommandToString(ClientCommand command) {
         return "Connect";
     case ClientCommand::Disconnect:
         return "Disconnect";
+    case ClientCommand::ListRooms:
+        return "ListRooms";
+    case ClientCommand::CreateRoom:
+        return "CreateRoom";
+    case ClientCommand::JoinRoom:
+        return "JoinRoom";
     case ClientCommand::ChooseHumanity:
         return "ChooseHumanity";
     case ClientCommand::ChoosePathogen:
@@ -65,6 +74,15 @@ inline std::optional<ClientCommand> parseClientCommand(std::string_view text) {
     }
     if (text == "Disconnect") {
         return ClientCommand::Disconnect;
+    }
+    if (text == "ListRooms") {
+        return ClientCommand::ListRooms;
+    }
+    if (text == "CreateRoom") {
+        return ClientCommand::CreateRoom;
+    }
+    if (text == "JoinRoom") {
+        return ClientCommand::JoinRoom;
     }
     if (text == "ChooseHumanity") {
         return ClientCommand::ChooseHumanity;

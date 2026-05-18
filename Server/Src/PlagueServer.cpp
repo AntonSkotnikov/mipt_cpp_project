@@ -205,7 +205,7 @@ bool PlagueServer::processInput(ClientSession& session, const std::string& line)
 
     switch (request->command) {
     case ClientCommand::Connect: {
-        response = makeResponse(*request, lobby_->addPlayer(session));
+        response = makeResponse(*request, lobby_->listRooms(session));
         break;
     }
 
@@ -214,6 +214,24 @@ bool PlagueServer::processInput(ClientSession& session, const std::string& line)
         response.payload = "disconnected";
         sendResponse(session, response);
         return false;
+
+    case ClientCommand::ListRooms:
+        response = makeResponse(*request, lobby_->listRooms(session));
+        break;
+
+    case ClientCommand::CreateRoom:
+        response = makeResponse(*request, lobby_->createRoom(
+            session,
+            payloadField(request->payload, "room").value_or(""),
+            payloadField(request->payload, "password").value_or("")));
+        break;
+
+    case ClientCommand::JoinRoom:
+        response = makeResponse(*request, lobby_->joinRoom(
+            session,
+            payloadField(request->payload, "room").value_or(""),
+            payloadField(request->payload, "password").value_or("")));
+        break;
 
     case ClientCommand::SelectSubtype:
         response = makeResponse(*request, lobby_->updateSubtype(
@@ -233,7 +251,9 @@ bool PlagueServer::processInput(ClientSession& session, const std::string& line)
         LOG_INFO("SelectCountry request received: id=%u payload=%s",
                  request->request_id,
                  request->payload.c_str());
-        response.payload = R"({"screen":"Game","event":"CountrySelected"})";
+        response = makeResponse(*request, lobby_->selectCountry(
+            session,
+            payloadField(request->payload, "country").value_or("")));
         break;
 
     case ClientCommand::ChooseHumanity:
@@ -255,12 +275,26 @@ bool PlagueServer::processInput(ClientSession& session, const std::string& line)
 
     case ClientCommand::Ping:
         // Legacy clients tunneled lobby actions through Ping.
-        if (action == "selectsubtype") {
+        if (action == "listrooms") {
+            response = makeResponse(*request, lobby_->listRooms(session));
+        } else if (action == "createroom") {
+            response = makeResponse(*request, lobby_->createRoom(
+                session,
+                payloadField(request->payload, "room").value_or(""),
+                payloadField(request->payload, "password").value_or("")));
+        } else if (action == "joinroom") {
+            response = makeResponse(*request, lobby_->joinRoom(
+                session,
+                payloadField(request->payload, "room").value_or(""),
+                payloadField(request->payload, "password").value_or("")));
+        } else if (action == "selectsubtype") {
             response = makeResponse(*request, lobby_->updateSubtype(
                 session,
                 subtypeFromPayload(request->payload, session.role)));
         } else if (action == "changeside") {
             response = makeResponse(*request, lobby_->requestSideChange(session));
+        } else if (action == "ready") {
+            response = makeResponse(*request, lobby_->toggleReady(session));
         } else {
             response.payload = "pong";
         }

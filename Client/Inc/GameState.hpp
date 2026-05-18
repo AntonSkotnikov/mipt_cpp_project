@@ -22,6 +22,8 @@ public:
     void setPlayerInfo(const InfoAboutPlayer& playerInfo);
     void setPlayerPoints(UpgradePointType points);
     void setCountries(const std::vector<Country>& countries);
+    void setRooms(const std::vector<RoomSummary>& rooms);
+    void setAvailableUpgrades(const std::vector<UpgradeDefinition>& upgrades);
     void setCureProgress(double cureProgress);
     void setChoosingSideState(const ChoosingSideState& choosingSide);
 

@@ -261,7 +261,7 @@ std::vector<std::string> parseObjectArrayField(const std::string& payload, std::
         if (inString) {
             continue;
         }
-        if (ch == ']') {
+        if (ch == ']' && depth == 0) {
             break;
         }
         if (ch == '{') {
@@ -279,6 +279,52 @@ std::vector<std::string> parseObjectArrayField(const std::string& payload, std::
     }
 
     return objects;
+}
+
+std::vector<std::string> parseStringArrayField(std::string_view payload, std::string_view key) {
+    std::vector<std::string> values;
+    const std::string quotedKey = '"' + std::string(key) + '"';
+    std::size_t pos = payload.find(quotedKey);
+    if (pos == std::string_view::npos) {
+        return values;
+    }
+
+    pos = payload.find('[', pos + quotedKey.size());
+    if (pos == std::string_view::npos) {
+        return values;
+    }
+
+    bool inString = false;
+    bool escaped = false;
+    std::size_t valueBegin = std::string_view::npos;
+
+    for (++pos; pos < payload.size(); ++pos) {
+        const char ch = payload[pos];
+        if (escaped) {
+            escaped = false;
+            continue;
+        }
+        if (ch == '\\') {
+            escaped = inString;
+            continue;
+        }
+        if (ch == '"') {
+            if (!inString) {
+                inString = true;
+                valueBegin = pos + 1;
+            } else {
+                values.push_back(decodeJsonString(payload.substr(valueBegin, pos - valueBegin)));
+                inString = false;
+                valueBegin = std::string_view::npos;
+            }
+            continue;
+        }
+        if (!inString && ch == ']') {
+            break;
+        }
+    }
+
+    return values;
 }
 
 std::vector<Country> parseCountries(const std::string& payload) {
@@ -302,11 +348,72 @@ std::vector<Country> parseCountries(const std::string& payload) {
     return countries;
 }
 
+std::vector<RoomSummary> parseRooms(const std::string& payload) {
+    std::vector<RoomSummary> rooms;
+    for (const std::string& object : parseObjectArrayField(payload, "rooms")) {
+        const auto name = parseStringField(object, "name");
+        if (!name.has_value()) {
+            continue;
+        }
+
+        RoomSummary room;
+        room.name = *name;
+        room.privateRoom = parseBoolField(object, "privateRoom").value_or(false);
+        room.players = static_cast<std::uint16_t>(
+            std::clamp(parseIntField(object, "players").value_or(0), 0, 65535));
+        room.capacity = static_cast<std::uint16_t>(
+            std::clamp(parseIntField(object, "capacity").value_or(2), 0, 65535));
+        rooms.push_back(room);
+    }
+    return rooms;
+}
+
+UpgradeCategory parseUpgradeCategory(std::string_view text) {
+    const std::string lower = toLower(std::string(text));
+    if (contains(lower, "clinic")) {
+        return UpgradeCategory::Clinic;
+    }
+    if (contains(lower, "abilities")) {
+        return UpgradeCategory::Abilities;
+    }
+    return UpgradeCategory::Transmission;
+}
+
+std::vector<UpgradeDefinition> parseAvailableUpgrades(const std::string& payload) {
+    std::vector<UpgradeDefinition> upgrades;
+    for (const std::string& object : parseObjectArrayField(payload, "availableUpgrades")) {
+        const auto id = parseStringField(object, "id");
+        if (!id.has_value()) {
+            continue;
+        }
+
+        UpgradeDefinition upgrade;
+        upgrade.id = *id;
+        if (const auto category = parseStringField(object, "category")) {
+            upgrade.category = parseUpgradeCategory(*category);
+        }
+        upgrade.title = parseStringField(object, "title").value_or("");
+        upgrade.cost = static_cast<UpgradePointType>(
+            std::clamp(parseIntField(object, "cost").value_or(0), 0, 65535));
+        upgrade.description = parseStringField(object, "description").value_or("");
+        upgrade.dependencies = parseStringArrayField(object, "dependencies");
+        upgrades.push_back(upgrade);
+    }
+    return upgrades;
+}
+
 bool packetShowsChoosingSide(const std::string& payload) {
     const std::string lower = toLower(payload);
     return contains(lower, "choosingside") ||
            contains(lower, "choosing_side") ||
            contains(lower, "lobby");
+}
+
+bool packetShowsRooms(const std::string& payload) {
+    const std::string lower = toLower(payload);
+    return contains(lower, "\"screen\":\"roombrowser\"") ||
+           contains(lower, "screen=roombrowser") ||
+           contains(lower, "\"rooms\"");
 }
 
 bool packetStartsGame(const std::string& payload) {
@@ -387,6 +494,8 @@ const char* flowStateName(ClientFlowState state) {
         return "Disconnected";
     case ClientFlowState::Connecting:
         return "Connecting";
+    case ClientFlowState::RoomBrowsing:
+        return "RoomBrowsing";
     case ClientFlowState::WaitingForRole:
         return "WaitingForRole";
     case ClientFlowState::ChoosingSubtype:
@@ -438,8 +547,27 @@ std::string makeChoosingSidePayload(request::ChoosingSideAction action,
     return payload.str();
 }
 
+std::string makeRoomPayload(const request::RoomRequest& roomRequest) {
+    const char* action = "listRooms";
+    if (roomRequest.action == request::RoomAction::Create) {
+        action = "createRoom";
+    } else if (roomRequest.action == request::RoomAction::Join) {
+        action = "joinRoom";
+    }
+
+    std::ostringstream payload;
+    payload << "action=" << action
+            << ";room=" << roomRequest.roomName
+            << ";password=" << roomRequest.password;
+    return payload.str();
+}
+
 std::string makeSelectCountryPayload(const std::string& countryName) {
     return "country=" + countryName;
+}
+
+void applyRoomPayload(GameState& gameState, const std::string& payload) {
+    gameState.setRooms(parseRooms(payload));
 }
 
 void applyGamePayload(GameState& gameState, const std::string& payload) {
@@ -458,6 +586,11 @@ void applyGamePayload(GameState& gameState, const std::string& payload) {
     std::vector<Country> countries = parseCountries(payload);
     if (!countries.empty()) {
         gameState.setCountries(countries);
+    }
+
+    std::vector<UpgradeDefinition> upgrades = parseAvailableUpgrades(payload);
+    if (!upgrades.empty()) {
+        gameState.setAvailableUpgrades(upgrades);
     }
 }
 
@@ -582,9 +715,22 @@ void ClientApp::handleServerPacket(const Packet& packet) {
         LOG_WARNING("Server rejected request %u: %s",
                     packet.request_id,
                     packet.error_message.c_str());
+        if (packetShowsRooms(packet.payload)) {
+            applyRoomPayload(game_state_, packet.payload);
+            setFlowState(ClientFlowState::RoomBrowsing);
+            setSituation(GameSituation::RoomBrowser);
+            return;
+        }
         transport_.disconnect();
         resetStateForMenu();
         setSituation(GameSituation::MainMenu);
+        return;
+    }
+
+    if (packetShowsRooms(packet.payload)) {
+        applyRoomPayload(game_state_, packet.payload);
+        setFlowState(ClientFlowState::RoomBrowsing);
+        setSituation(GameSituation::RoomBrowser);
         return;
     }
 
@@ -622,6 +768,13 @@ void ClientApp::handleServerPacket(const Packet& packet) {
     }
 
     switch (getFlowState()) {
+    case ClientFlowState::RoomBrowsing:
+        if (packetShowsChoosingSide(packet.payload) || parseRoleFromPayload(packet.payload).has_value()) {
+            setFlowState(ClientFlowState::ChoosingSubtype);
+            setSituation(GameSituation::ChoosingSide);
+        }
+        break;
+
     case ClientFlowState::WaitingForRole:
         if (packetShowsChoosingSide(packet.payload) || parseRoleFromPayload(packet.payload).has_value()) {
             setFlowState(ClientFlowState::ChoosingSubtype);
@@ -700,8 +853,8 @@ void ClientApp::handleUserAction(const UserAction& request) {
                 break;
             }
 
-            LOG_INFO("Connection established, requesting lobby role");
-            setFlowState(ClientFlowState::WaitingForRole);
+            LOG_INFO("Connection established, requesting room list");
+            setFlowState(ClientFlowState::RoomBrowsing);
             request_handler_->sendRequest(
                 ClientCommand::Connect,
                 "",
@@ -727,6 +880,41 @@ void ClientApp::handleUserAction(const UserAction& request) {
         break;
 
     case GameSituation::RoomBrowser:
+        if (std::holds_alternative<request::RoomRequest>(request)) {
+            const request::RoomRequest roomRequest = std::get<request::RoomRequest>(request);
+
+            if (roomRequest.action == request::RoomAction::Back) {
+                LOG_INFO("Room browser action: back to main menu");
+                transport_.disconnect();
+                resetStateForMenu();
+                setSituation(GameSituation::MainMenu);
+                break;
+            }
+
+            if (request_handler_->hasPendingRequests()) {
+                LOG_DEBUG("Room action ignored because a request is already pending");
+                break;
+            }
+
+            const ClientCommand command = roomRequest.action == request::RoomAction::Create
+                ? ClientCommand::CreateRoom
+                : ClientCommand::JoinRoom;
+            LOG_INFO("Room browser action: %s room=%s",
+                     command == ClientCommand::CreateRoom ? "create" : "join",
+                     roomRequest.roomName.c_str());
+
+            request_handler_->sendRequest(
+                command,
+                makeRoomPayload(roomRequest),
+                [this](const ServerResponse& response) {
+                    handleServerPacket(response);
+                },
+                [this](RequestId) {
+                    LOG_WARNING("Room request timed out");
+                    setFlowState(ClientFlowState::RoomBrowsing);
+                    setSituation(GameSituation::RoomBrowser);
+                });
+        }
         break;
 
     case GameSituation::ChoosingSide:
