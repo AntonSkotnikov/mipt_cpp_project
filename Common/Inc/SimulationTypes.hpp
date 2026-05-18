@@ -111,4 +111,8 @@ public:
     void checkBorderClosures();                 // Автоматическая проверка закрытия границ
 };
 
+// ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
+std::vector<CountryConnection> buildInitialConnections(const std::vector<Country>& countries);
+World initializeWorld();
+
 } // namespace plague
