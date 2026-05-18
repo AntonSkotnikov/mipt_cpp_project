@@ -37,6 +37,7 @@ GameScreen::GameScreen(Config & cfg, Window & win) : Screen(cfg, win) {
         return request::Game::Upgrade;
     })));
     auto newsTicker = std::make_unique<Ticker>(win_, 6);
+    newsTicker_ = newsTicker.get();
     widgets.push_back(std::make_unique<FrameDecorator>(win_, std::move(newsTicker)));
 
     auto dayInfo = std::make_unique<VariableInfo>(win_, "Day: 0");
@@ -123,6 +124,7 @@ void GameScreen::updateSnapshot(const GameSnapshot & snapshot) {
         dayInfo_->changeLine("Day: " + std::to_string(snapshot_.day));
     }
 
+    updateNewsTicker();
     updatePopulationInfo();
     updateSelectedCountryInfo();
 }
@@ -219,6 +221,22 @@ void GameScreen::toggleNavigationMode() {
 
     navigatingCountries_ = true;
     focusCountry(indexOfSelectedCountry < 0 ? 0 : static_cast<std::size_t>(indexOfSelectedCountry));
+}
+
+void GameScreen::updateNewsTicker() {
+    if (newsTicker_ == nullptr) {
+        return;
+    }
+
+    if (snapshot_.news.size() < displayedNewsCount_) {
+        displayedNewsCount_ = 0;
+    }
+
+    for (std::size_t i = displayedNewsCount_; i < snapshot_.news.size(); i++) {
+        newsTicker_->addLine(snapshot_.news[i]);
+    }
+
+    displayedNewsCount_ = snapshot_.news.size();
 }
 
 void GameScreen::updatePopulationInfo() {
