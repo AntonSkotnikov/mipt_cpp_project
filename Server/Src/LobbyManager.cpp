@@ -6,7 +6,9 @@
 #include <algorithm>
 #include <chrono>
 #include <cerrno>
+#include <cmath>
 #include <cstring>
+#include <cstdint>
 #include <random>
 #include <sstream>
 #include <sys/socket.h>
@@ -39,6 +41,43 @@ const char* lobbyStateToJson(LobbyState state) {
         return "InGame";
     }
     return "WaitingForSecond";
+}
+
+std::string jsonEscape(std::string_view text) {
+    std::string escaped;
+    escaped.reserve(text.size());
+
+    for (const char ch : text) {
+        switch (ch) {
+        case '\\':
+            escaped += R"(\\)";
+            break;
+        case '"':
+            escaped += R"(\")";
+            break;
+        case '\n':
+            escaped += R"(\n)";
+            break;
+        case '\r':
+            escaped += R"(\r)";
+            break;
+        case '\t':
+            escaped += R"(\t)";
+            break;
+        default:
+            escaped.push_back(ch);
+            break;
+        }
+    }
+
+    return escaped;
+}
+
+std::uint64_t nonNegativeCount(double value) {
+    if (value <= 0.0) {
+        return 0;
+    }
+    return static_cast<std::uint64_t>(std::llround(value));
 }
 
 PlayerSubtype defaultSubtypeFor(PlayerRole role) {
@@ -327,6 +366,79 @@ LobbyActionResult LobbyManager::requestSideChange(ClientSession& requester) {
     return result;
 }
 
+LobbyActionResult LobbyManager::selectCountry(ClientSession& session, const std::string& countryName) {
+    LobbyActionResult result;
+    ClientSession* opponent = nullptr;
+    std::string opponentPayload;
+
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+
+        if (!containsSession(session)) {
+            LOG_WARNING("Country selection rejected: player is not in lobby fd=%d", session.socket_fd);
+            result.success = false;
+            result.errorMessage = "Player is not in lobby";
+            return result;
+        }
+
+        if (session.lobbyState != LobbyState::InGame) {
+            LOG_WARNING("Country selection rejected: game is not running fd=%d country=%s",
+                        session.socket_fd,
+                        countryName.c_str());
+            result.payload = R"({"screen":"Game","event":"CountrySelectionRejected","reason":"game_not_running"})";
+            return result;
+        }
+
+        if (!worldInitialized_) {
+            world_ = initializeWorld();
+            worldInitialized_ = true;
+            gameDay_ = 1;
+        }
+
+        const int countryIndex = world_.getCountryIndex(countryName);
+        if (countryIndex < 0) {
+            LOG_WARNING("Country selection rejected: unknown country=%s fd=%d",
+                        countryName.c_str(),
+                        session.socket_fd);
+            result.payload = R"({"screen":"Game","event":"CountrySelectionRejected","reason":"unknown_country"})";
+            return result;
+        }
+
+        bool infectedSelectedCountry = false;
+        if (session.role == PlayerRole::Pathogen && !initialInfectionSelected_) {
+            Country& country = world_.countries[static_cast<std::size_t>(countryIndex)];
+            const double infected = std::min(country.pop.susceptible, 1000.0);
+            country.pop.susceptible -= infected;
+            country.pop.infected += infected;
+            initialInfectionSelected_ = true;
+            infectedSelectedCountry = infected > 0.0;
+            LOG_INFO("Initial infection selected: country=%s infected=%.0f fd=%d",
+                     countryName.c_str(),
+                     infected,
+                     session.socket_fd);
+        } else {
+            LOG_INFO("Country selected: country=%s role=%s fd=%d",
+                     countryName.c_str(),
+                     roleToJson(session.role),
+                     session.socket_fd);
+        }
+
+        result.payload = gameStatsPayloadLocked(
+            infectedSelectedCountry ? "CountryInfected" : "CountrySelected");
+
+        opponent = opponentOf(session);
+        if (opponent != nullptr) {
+            opponentPayload = result.payload;
+        }
+    }
+
+    if (opponent != nullptr) {
+        notifySession(*opponent, opponentPayload);
+    }
+
+    return result;
+}
+
 void LobbyManager::removePlayer(ClientSession& session) {
     ClientSession* opponent = nullptr;
     bool wasInGame = false;
@@ -452,19 +564,63 @@ std::string LobbyManager::startPayloadFor(const ClientSession& session) const {
                 << R"({"id":"quarantine_1","category":"Transmission","cost":15})";
     }
 
+    payload << ']'
+            << R"(,"cureProgress":)" << (worldInitialized_ ? world_.vaccine.progress : 0.0)
+            << R"(,"countries":[)";
+
+    if (worldInitialized_) {
+        for (std::size_t i = 0; i < world_.countries.size(); ++i) {
+            if (i > 0) {
+                payload << ',';
+            }
+            const Country& country = world_.countries[i];
+            payload << R"({"name":")" << jsonEscape(country.name) << '"'
+                    << R"(,"initial":)" << nonNegativeCount(country.pop.initial)
+                    << R"(,"susceptible":)" << nonNegativeCount(country.pop.susceptible)
+                    << R"(,"exposed":)" << nonNegativeCount(country.pop.exposed)
+                    << R"(,"infected":)" << nonNegativeCount(country.pop.infected)
+                    << R"(,"recovered":)" << nonNegativeCount(country.pop.recovered)
+                    << R"(,"dead":)" << nonNegativeCount(country.pop.dead)
+                    << '}';
+        }
+    }
+
     payload << R"(]})";
     return payload.str();
 }
 
 std::string LobbyManager::gameStatsPayload(int tick) const {
+    (void)tick;
+    std::lock_guard<std::mutex> lock(mutex_);
+    return gameStatsPayloadLocked("Tick");
+}
+
+std::string LobbyManager::gameStatsPayloadLocked(const char* event) const {
     std::ostringstream payload;
     payload << R"({"screen":"Game")"
-            << R"(,"event":"Tick")"
-            << R"(,"day":)" << (tick + 1)
-            << R"(,"infected":)" << (1000 + tick * 137)
-            << R"(,"dead":)" << (tick * 13)
-            << R"(,"cureProgress":)" << std::min(100, tick * 3)
-            << '}';
+            << R"(,"event":")" << event << '"'
+            << R"(,"day":)" << gameDay_
+            << R"(,"cureProgress":)" << (worldInitialized_ ? world_.vaccine.progress : 0.0)
+            << R"(,"countries":[)";
+
+    if (worldInitialized_) {
+        for (std::size_t i = 0; i < world_.countries.size(); ++i) {
+            if (i > 0) {
+                payload << ',';
+            }
+            const Country& country = world_.countries[i];
+            payload << R"({"name":")" << jsonEscape(country.name) << '"'
+                    << R"(,"initial":)" << nonNegativeCount(country.pop.initial)
+                    << R"(,"susceptible":)" << nonNegativeCount(country.pop.susceptible)
+                    << R"(,"exposed":)" << nonNegativeCount(country.pop.exposed)
+                    << R"(,"infected":)" << nonNegativeCount(country.pop.infected)
+                    << R"(,"recovered":)" << nonNegativeCount(country.pop.recovered)
+                    << R"(,"dead":)" << nonNegativeCount(country.pop.dead)
+                    << '}';
+        }
+    }
+
+    payload << R"(]})";
     return payload.str();
 }
 
@@ -516,6 +672,11 @@ void LobbyManager::startGameLocked(ClientSession& triggeringSession) {
         player->points = 100;
     }
 
+    world_ = initializeWorld();
+    worldInitialized_ = true;
+    initialInfectionSelected_ = false;
+    gameDay_ = 1;
+
     ClientSession* opponent = opponentOf(triggeringSession);
     if (opponent != nullptr) {
         LOG_DEBUG("Sending game start to opponent: fd=%d", opponent->socket_fd);
@@ -528,17 +689,25 @@ void LobbyManager::startGameLocked(ClientSession& triggeringSession) {
 void LobbyManager::gameLoop() {
     LOG_INFO("Game loop started");
 
-    // This placeholder simulation loop exercises the network contract until a real
-    // win condition or a disconnect stops the match.
+    // The loop advances the shared world model and broadcasts the latest snapshot.
     for (int tick = 1; gameLoopRunning_.load(); ++tick) {
         std::this_thread::sleep_for(std::chrono::seconds(3));
 
         bool stillInGame = false;
+        std::string tickPayload;
         {
             std::lock_guard<std::mutex> lock(mutex_);
             stillInGame = hasTwoPlayers() &&
                           players_[0]->lobbyState == LobbyState::InGame &&
                           players_[1]->lobbyState == LobbyState::InGame;
+
+            if (stillInGame) {
+                if (worldInitialized_ && initialInfectionSelected_) {
+                    simulateDay(world_);
+                    ++gameDay_;
+                }
+                tickPayload = gameStatsPayloadLocked("Tick");
+            }
         }
 
         if (!stillInGame) {
@@ -548,7 +717,7 @@ void LobbyManager::gameLoop() {
         }
 
         LOG_DEBUG("Broadcasting game tick: tick=%d", tick);
-        notifyBoth(gameStatsPayload(tick));
+        notifyBoth(tickPayload);
     }
 }
 

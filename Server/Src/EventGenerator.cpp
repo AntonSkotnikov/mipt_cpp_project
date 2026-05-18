@@ -259,6 +259,9 @@ EventResult EventGenerator::tryBorderClosure(World& world) {
 // ========== НАЧИСЛЕНИЕ DNA ==========
 EventResult EventGenerator::tryDNAGrant(World& world, int day,
                                         int pathogenDNA, int humanityDNA) {
+    (void)pathogenDNA;
+    (void)humanityDNA;
+
     EventResult result;
 
     // Проверяем интервал

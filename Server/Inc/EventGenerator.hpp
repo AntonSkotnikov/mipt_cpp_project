@@ -11,7 +11,8 @@
  * - Начисление игровой валюты (DNA) игрокам
  */
 
-#include "MatModel.hpp"
+#include "SimulationTypes.hpp"
+
 #include <random>
 #include <cstdint>
 

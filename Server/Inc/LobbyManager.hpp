@@ -2,6 +2,7 @@
 
 #include "Client_ServerAPI.hpp"
 #include "GameTypes.hpp"
+#include "MatModel.hpp"
 
 #include <atomic>
 #include <mutex>
@@ -27,6 +28,7 @@ public:
     LobbyActionResult updateSubtype(ClientSession& session, PlayerSubtype subtype);
     LobbyActionResult toggleReady(ClientSession& session);
     LobbyActionResult requestSideChange(ClientSession& requester);
+    LobbyActionResult selectCountry(ClientSession& session, const std::string& countryName);
     void removePlayer(ClientSession& session);
 
 private:
@@ -38,6 +40,7 @@ private:
     std::string lobbyPayloadFor(const ClientSession& session, const char* event) const;
     std::string startPayloadFor(const ClientSession& session) const;
     std::string gameStatsPayload(int tick) const;
+    std::string gameStatsPayloadLocked(const char* event) const;
     void notifySession(ClientSession& session, const std::string& payload);
     void notifyOpponent(ClientSession& session, const std::string& payload);
     void notifyBoth(const std::string& payload);
@@ -50,6 +53,10 @@ private:
     ClientSession* players_[2]{nullptr, nullptr};
     std::atomic_bool gameLoopRunning_{false};
     std::thread gameThread_;
+    World world_;
+    bool worldInitialized_ = false;
+    bool initialInfectionSelected_ = false;
+    int gameDay_ = 1;
 };
 
 }  // namespace plague

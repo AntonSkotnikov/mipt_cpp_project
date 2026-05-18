@@ -5,11 +5,13 @@
 #include <algorithm>
 #include <chrono>
 #include <cctype>
+#include <cstdlib>
 #include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
 #include <thread>
+#include <vector>
 
 namespace plague {
 
@@ -65,6 +67,42 @@ std::optional<int> parseIntField(const std::string& payload, std::string_view ke
     }
 }
 
+std::optional<double> parseDoubleField(std::string_view payload, std::string_view key) {
+    const std::string lower = toLower(std::string(payload));
+    const std::string lowerKey = toLower(std::string(key));
+    const std::string quotedKey = '"' + lowerKey + '"';
+
+    std::size_t pos = lower.find(quotedKey);
+    std::size_t keyEnd = std::string::npos;
+    if (pos == std::string::npos) {
+        pos = lower.find(lowerKey);
+        if (pos == std::string::npos) {
+            return std::nullopt;
+        }
+        keyEnd = pos + lowerKey.size();
+    } else {
+        keyEnd = pos + quotedKey.size();
+    }
+
+    pos = lower.find_first_of("=:", keyEnd);
+    if (pos == std::string::npos) {
+        return std::nullopt;
+    }
+
+    pos = lower.find_first_of("-0123456789", pos + 1);
+    if (pos == std::string::npos) {
+        return std::nullopt;
+    }
+
+    const std::string numberText = std::string(payload.substr(pos));
+    char* end = nullptr;
+    const double value = std::strtod(numberText.c_str(), &end);
+    if (end == numberText.c_str()) {
+        return std::nullopt;
+    }
+    return value;
+}
+
 std::optional<bool> parseBoolField(const std::string& payload, std::string_view key) {
     const std::string lower = toLower(payload);
     const std::string lowerKey = toLower(std::string(key));
@@ -113,6 +151,155 @@ std::optional<bool> parseBoolField(const std::string& payload, std::string_view 
         return false;
     }
     return std::nullopt;
+}
+
+std::string decodeJsonString(std::string_view text) {
+    std::string decoded;
+    decoded.reserve(text.size());
+
+    bool escaped = false;
+    for (const char ch : text) {
+        if (escaped) {
+            switch (ch) {
+            case 'n':
+                decoded.push_back('\n');
+                break;
+            case 'r':
+                decoded.push_back('\r');
+                break;
+            case 't':
+                decoded.push_back('\t');
+                break;
+            default:
+                decoded.push_back(ch);
+                break;
+            }
+            escaped = false;
+            continue;
+        }
+
+        if (ch == '\\') {
+            escaped = true;
+            continue;
+        }
+
+        decoded.push_back(ch);
+    }
+
+    return decoded;
+}
+
+std::optional<std::string> parseStringField(std::string_view object, std::string_view key) {
+    const std::string quotedKey = '"' + std::string(key) + '"';
+    std::size_t pos = object.find(quotedKey);
+    if (pos == std::string_view::npos) {
+        return std::nullopt;
+    }
+
+    pos = object.find(':', pos + quotedKey.size());
+    if (pos == std::string_view::npos) {
+        return std::nullopt;
+    }
+
+    pos = object.find('"', pos + 1);
+    if (pos == std::string_view::npos) {
+        return std::nullopt;
+    }
+
+    const std::size_t valueBegin = pos + 1;
+    bool escaped = false;
+    for (++pos; pos < object.size(); ++pos) {
+        const char ch = object[pos];
+        if (escaped) {
+            escaped = false;
+            continue;
+        }
+        if (ch == '\\') {
+            escaped = true;
+            continue;
+        }
+        if (ch == '"') {
+            return decodeJsonString(object.substr(valueBegin, pos - valueBegin));
+        }
+    }
+
+    return std::nullopt;
+}
+
+std::vector<std::string> parseObjectArrayField(const std::string& payload, std::string_view key) {
+    std::vector<std::string> objects;
+    const std::string quotedKey = '"' + std::string(key) + '"';
+    std::size_t pos = payload.find(quotedKey);
+    if (pos == std::string::npos) {
+        return objects;
+    }
+
+    pos = payload.find('[', pos + quotedKey.size());
+    if (pos == std::string::npos) {
+        return objects;
+    }
+
+    bool inString = false;
+    bool escaped = false;
+    int depth = 0;
+    std::size_t objectBegin = std::string::npos;
+
+    for (++pos; pos < payload.size(); ++pos) {
+        const char ch = payload[pos];
+        if (escaped) {
+            escaped = false;
+            continue;
+        }
+        if (ch == '\\') {
+            escaped = inString;
+            continue;
+        }
+        if (ch == '"') {
+            inString = !inString;
+            continue;
+        }
+        if (inString) {
+            continue;
+        }
+        if (ch == ']') {
+            break;
+        }
+        if (ch == '{') {
+            if (depth == 0) {
+                objectBegin = pos;
+            }
+            ++depth;
+        } else if (ch == '}' && depth > 0) {
+            --depth;
+            if (depth == 0 && objectBegin != std::string::npos) {
+                objects.push_back(payload.substr(objectBegin, pos - objectBegin + 1));
+                objectBegin = std::string::npos;
+            }
+        }
+    }
+
+    return objects;
+}
+
+std::vector<Country> parseCountries(const std::string& payload) {
+    std::vector<Country> countries;
+    for (const std::string& object : parseObjectArrayField(payload, "countries")) {
+        const auto name = parseStringField(object, "name");
+        if (!name.has_value()) {
+            continue;
+        }
+
+        Country country;
+        country.name = *name;
+        country.pop = Population(parseDoubleField(object, "initial").value_or(0.0));
+        country.pop.susceptible = parseDoubleField(object, "susceptible").value_or(0.0);
+        country.pop.exposed = parseDoubleField(object, "exposed").value_or(0.0);
+        country.pop.infected = parseDoubleField(object, "infected").value_or(0.0);
+        country.pop.recovered = parseDoubleField(object, "recovered").value_or(0.0);
+        country.pop.dead = parseDoubleField(object, "dead").value_or(0.0);
+        countries.push_back(country);
+    }
+    return countries;
 }
 
 bool packetShowsChoosingSide(const std::string& payload) {
@@ -247,6 +434,29 @@ std::string makeChoosingSidePayload(request::ChoosingSideAction action,
             << ";role=" << roleName(role)
             << ";subtype=" << subtypeName(subtype);
     return payload.str();
+}
+
+std::string makeSelectCountryPayload(const std::string& countryName) {
+    return "country=" + countryName;
+}
+
+void applyGamePayload(GameState& gameState, const std::string& payload) {
+    if (const auto day = parseIntField(payload, "day")) {
+        gameState.setDay(static_cast<std::uint16_t>(std::max(0, *day)));
+    }
+
+    if (const auto points = parseIntField(payload, "points")) {
+        gameState.setPlayerPoints(static_cast<UpgradePointType>(std::max(0, *points)));
+    }
+
+    if (const auto cureProgress = parseDoubleField(payload, "cureProgress")) {
+        gameState.setCureProgress(*cureProgress);
+    }
+
+    std::vector<Country> countries = parseCountries(payload);
+    if (!countries.empty()) {
+        gameState.setCountries(countries);
+    }
 }
 
 void applyAssignedRole(GameState& gameState, PlayerRole role) {
@@ -393,14 +603,9 @@ void ClientApp::handleServerPacket(const Packet& packet) {
 
     if (packetStartsGame(packet.payload)) {
         LOG_INFO("Game start packet received");
-        if (const auto day = parseIntField(packet.payload, "day")) {
-            game_state_.setDay(static_cast<std::uint16_t>(std::max(0, *day)));
-        } else {
+        applyGamePayload(game_state_, packet.payload);
+        if (!parseIntField(packet.payload, "day").has_value()) {
             game_state_.setDay(1);
-        }
-
-        if (const auto points = parseIntField(packet.payload, "points")) {
-            game_state_.setPlayerPoints(static_cast<UpgradePointType>(std::max(0, *points)));
         }
 
         setFlowState(ClientFlowState::GameRunning);
@@ -409,14 +614,7 @@ void ClientApp::handleServerPacket(const Packet& packet) {
     }
 
     if (packetShowsGame(packet.payload)) {
-        if (const auto day = parseIntField(packet.payload, "day")) {
-            game_state_.setDay(static_cast<std::uint16_t>(std::max(0, *day)));
-        }
-
-        if (const auto points = parseIntField(packet.payload, "points")) {
-            game_state_.setPlayerPoints(static_cast<UpgradePointType>(std::max(0, *points)));
-        }
-
+        applyGamePayload(game_state_, packet.payload);
         LOG_DEBUG("Game update packet received");
         return;
     }
@@ -629,7 +827,29 @@ void ClientApp::handleUserAction(const UserAction& request) {
         break;
 
     case GameSituation::Game:
-        if (std::holds_alternative<request::Settings>(request) &&
+        if (std::holds_alternative<request::SelectCountry>(request)) {
+            if (request_handler_->hasPendingRequests()) {
+                LOG_DEBUG("Select-country action ignored because a request is already pending");
+                break;
+            }
+
+            const request::SelectCountry selectCountry = std::get<request::SelectCountry>(request);
+            if (selectCountry.countryName.empty()) {
+                LOG_WARNING("Select-country action ignored: country name is empty");
+                break;
+            }
+
+            LOG_INFO("Game action: select country=%s", selectCountry.countryName.c_str());
+            request_handler_->sendRequest(
+                ClientCommand::SelectCountry,
+                makeSelectCountryPayload(selectCountry.countryName),
+                [this](const ServerResponse& response) {
+                    handleServerPacket(response);
+                },
+                [countryName = selectCountry.countryName](RequestId) {
+                    LOG_WARNING("Select-country request timed out: country=%s", countryName.c_str());
+                });
+        } else if (std::holds_alternative<request::Settings>(request) &&
             std::get<request::Settings>(request) == request::Settings::Back) {
             LOG_INFO("Game action: leave current game");
             setFlowState(ClientFlowState::GameOver);

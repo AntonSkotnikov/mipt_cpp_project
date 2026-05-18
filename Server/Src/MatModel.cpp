@@ -9,116 +9,6 @@
 
 namespace plague {
 
-// ========== РЕАЛИЗАЦИЯ МЕТОДОВ СИМУЛЯЦИОННЫХ ТИПОВ ==========
-
-// CountryParams
-double CountryParams::getScienceFactor() const {
-    return medicine / 5.0;
-}
-
-double CountryParams::getVaccineSpeed() const {
-    return 0.5 + (medicine / 5.0) * 0.5;
-}
-
-double CountryParams::getTransportFactor() const {
-    return 0.2 + (urbanization / 5.0) * 0.8;
-}
-
-double CountryParams::getBorderCloseSpeed() const {
-    return governmentReaction / 5.0;
-}
-
-// Population
-Population::Population(double total)
-    : initial(total), susceptible(total), exposed(0),
-      infected(0), recovered(0), dead(0) {}
-
-double Population::alive() const {
-    return susceptible + exposed + infected + recovered;
-}
-
-// Country
-Country::Country() : borderOpenness(1.0), bordersClosed(false) {}
-
-// Virus
-double Virus::getClimateModifier(int climateLevel) const {
-    if (climateLevel < 1 || climateLevel > 5) return 1.0;
-    return climateModifiers[climateLevel - 1];
-}
-
-// Humanity
-double Humanity::getGlobalScientists() const {
-    return scientistCommitment * 10000.0;
-}
-
-double Humanity::getBorderCloseThreshold() const {
-    return 0.3 - awareness * 0.2;
-}
-
-// Vaccine
-Vaccine::Vaccine() : progress(0), spreadRate(0.005), isReady(false), efficacy(0.95) {}
-
-void Vaccine::updateProgress(double delta) {
-    progress += delta;
-    if (progress >= 100.0) {
-        progress = 100.0;
-        isReady = true;
-    }
-}
-
-// CountryConnection
-CountryConnection::CountryConnection(size_t f, size_t t, double volume)
-    : from(f), to(t), transportVolume(volume), isActive(true) {}
-
-// World methods
-int World::getCountryIndex(const std::string& name) const {
-    for (size_t i = 0; i < countries.size(); ++i) {
-        if (countries[i].name == name) return static_cast<int>(i);
-    }
-    return -1;
-}
-
-void World::closeBorder(size_t i, size_t j) {
-    for (auto& conn : connections) {
-        if ((conn.from == i && conn.to == j) ||
-            (conn.from == j && conn.to == i)) {
-            conn.isActive = false;
-        }
-    }
-    if (i < countries.size()) countries[i].bordersClosed = true;
-    if (j < countries.size()) countries[j].bordersClosed = true;
-}
-
-void World::closeAllBorders(size_t countryIdx) {
-    if (countryIdx >= countries.size()) return;
-    countries[countryIdx].bordersClosed = true;
-    countries[countryIdx].borderOpenness = 0.0;
-
-    for (auto& conn : connections) {
-        if (conn.from == countryIdx || conn.to == countryIdx) {
-            conn.isActive = false;
-        }
-    }
-}
-
-void World::checkBorderClosures() {
-    double threshold = humanity.getBorderCloseThreshold();
-
-    for (size_t i = 0; i < countries.size(); ++i) {
-        Country& country = countries[i];
-
-        double infectionRate = country.pop.infected / country.pop.initial;
-        double globalAwareness = humanity.awareness;
-
-        double closeProbability = (infectionRate + globalAwareness) *
-                                 country.params.getBorderCloseSpeed();
-
-        if (closeProbability > threshold && !country.bordersClosed) {
-            closeAllBorders(i);
-        }
-    }
-}
-
 // ---------- Инициализация связей (с использованием CountryConnection) ----------
 std::vector<CountryConnection> buildInitialConnections(const std::vector<Country>& countries) {
     std::vector<CountryConnection> connections;
@@ -134,16 +24,38 @@ std::vector<CountryConnection> buildInitialConnections(const std::vector<Country
         }
     };
 
-    // Транспортные связи между странами (объем транспорта зависит от урбанизации)
-    connect("Китай", "Россия", 5000.0);
-    connect("Китай", "Индия", 8000.0);
-    connect("Китай", "США", 3000.0);
-    connect("Россия", "США", 2000.0);
-    connect("США", "Индия", 4000.0);
-    connect("США", "Бразилия", 3500.0);
-    connect("Индия", "Бразилия", 2500.0);
-    connect("Бразилия", "Южная Африка", 1500.0);
-    connect("Южная Африка", "Китай", 2000.0);
+    // Names match Interface/Src/Screen.cpp map country identifiers.
+    connect("CHINA", "RUSSIA", 5000.0);
+    connect("CHINA", "INDIA", 8000.0);
+    connect("CHINA", "USA", 3000.0);
+    connect("RUSSIA", "USA", 2000.0);
+    connect("USA", "INDIA", 4000.0);
+    connect("USA", "BRAZIL", 3500.0);
+    connect("INDIA", "BRAZIL", 2500.0);
+    connect("BRAZIL", "S AFRICA", 1500.0);
+    connect("S AFRICA", "CHINA", 2000.0);
+    connect("CANADA", "USA", 4500.0);
+    connect("MEXICO", "USA", 5000.0);
+    connect("UK", "W EUROPE", 4500.0);
+    connect("W EUROPE", "SCANDINAVIA", 2500.0);
+    connect("W EUROPE", "TURKEY", 3200.0);
+    connect("TURKEY", "MIDDLE EAST", 2800.0);
+    connect("MIDDLE EAST", "INDIA", 3500.0);
+    connect("MIDDLE EAST", "N AFRICA", 2500.0);
+    connect("N AFRICA", "M AFRICA", 1800.0);
+    connect("M AFRICA", "S AFRICA", 1800.0);
+    connect("AUSTRALIA", "OCEANIA", 2200.0);
+    connect("AUSTRALIA", "NEW ZELAND", 1800.0);
+    connect("JAPAN", "CHINA", 3500.0);
+    connect("MONGOLIA", "CHINA", 1200.0);
+    connect("KAZAKHSTAN", "RUSSIA", 1600.0);
+    connect("UKRAINE", "RUSSIA", 1500.0);
+    connect("BELARUS", "RUSSIA", 1200.0);
+    connect("GREENLAND", "ICELAND", 800.0);
+    connect("ICELAND", "UK", 900.0);
+    connect("N SOUTH AMERICA", "BRAZIL", 1800.0);
+    connect("SW SOUTH AMERICA", "BRAZIL", 1800.0);
+    connect("MADAGASCAR", "S AFRICA", 700.0);
 
     return connections;
 }
@@ -158,14 +70,36 @@ World initializeWorld() {
         double popM;
     };
 
-    // Временный короткий список для отладки
     std::vector<RawCountry> raw = {
-        {"Китай",        3, 3, 5, 5, 1400.0},
-        {"США",          5, 3, 5, 3, 331.0},
-        {"Россия",       3, 3, 3, 3, 144.0},
-        {"Индия",        2, 5, 4, 2, 1400.0},
-        {"Бразилия",     2, 5, 4, 2, 213.0},
-        {"Южная Африка", 3, 4, 3, 3, 60.0},
+        {"AUSTRALIA",          5, 4, 5, 4, 26.0},
+        {"BELARUS",            3, 2, 3, 3, 9.0},
+        {"BRAZIL",             2, 5, 4, 2, 213.0},
+        {"CANADA",             5, 1, 4, 4, 39.0},
+        {"CHINA",              3, 3, 5, 5, 1400.0},
+        {"EAST",               2, 4, 3, 2, 120.0},
+        {"GREENLAND",          3, 1, 1, 3, 0.06},
+        {"ICELAND",            4, 1, 2, 4, 0.4},
+        {"INDIA",              2, 5, 4, 2, 1400.0},
+        {"JAPAN",              5, 3, 5, 5, 125.0},
+        {"KAZAKHSTAN",         3, 2, 3, 3, 19.0},
+        {"M AFRICA",           2, 5, 2, 2, 180.0},
+        {"MADAGASCAR",         2, 5, 2, 2, 30.0},
+        {"MEXICO",             3, 4, 4, 3, 128.0},
+        {"MIDDLE EAST",        3, 5, 4, 3, 260.0},
+        {"MONGOLIA",           2, 2, 2, 3, 3.5},
+        {"N AFRICA",           2, 5, 3, 2, 250.0},
+        {"N SOUTH AMERICA",    2, 5, 3, 2, 60.0},
+        {"NEW ZELAND",         5, 3, 3, 5, 5.0},
+        {"OCEANIA",            2, 5, 2, 2, 12.0},
+        {"RUSSIA",             3, 2, 3, 3, 144.0},
+        {"S AFRICA",           3, 4, 3, 3, 60.0},
+        {"SCANDINAVIA",        5, 1, 4, 5, 27.0},
+        {"SW SOUTH AMERICA",   3, 3, 3, 3, 50.0},
+        {"TURKEY",             3, 4, 4, 3, 85.0},
+        {"UK",                 5, 2, 5, 4, 67.0},
+        {"UKRAINE",            3, 2, 3, 3, 37.0},
+        {"USA",                5, 3, 5, 3, 331.0},
+        {"W EUROPE",           5, 3, 5, 4, 450.0},
     };
 
     for (const auto& r : raw) {

@@ -229,6 +229,21 @@ bool PlagueServer::processInput(ClientSession& session, const std::string& line)
         response = makeResponse(*request, lobby_->toggleReady(session));
         break;
 
+    case ClientCommand::SelectCountry:
+        if (const auto countryName = payloadField(request->payload, "country");
+            countryName.has_value() && !countryName->empty()) {
+            LOG_INFO("SelectCountry request received: id=%u country=%s",
+                     request->request_id,
+                     countryName->c_str());
+            response = makeResponse(*request, lobby_->selectCountry(session, *countryName));
+        } else {
+            LOG_WARNING("SelectCountry rejected: missing country payload id=%u payload=%s",
+                        request->request_id,
+                        request->payload.c_str());
+            response.payload = R"({"screen":"Game","event":"CountrySelectionRejected"})";
+        }
+        break;
+
     case ClientCommand::ChooseHumanity:
     case ClientCommand::ChoosePathogen:
         // Legacy clients used role commands for choosing-side actions before

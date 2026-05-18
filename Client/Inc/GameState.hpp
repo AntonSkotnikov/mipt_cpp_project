@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <mutex>
+#include <vector>
 
 namespace plague {
 
@@ -20,6 +21,8 @@ public:
     void setRole(PlayerRole role);
     void setPlayerInfo(const InfoAboutPlayer& playerInfo);
     void setPlayerPoints(UpgradePointType points);
+    void setCountries(const std::vector<Country>& countries);
+    void setCureProgress(double cureProgress);
     void setChoosingSideState(const ChoosingSideState& choosingSide);
 
     GameSnapshot snapshot() const;
