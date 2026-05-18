@@ -21,6 +21,7 @@ enum class ClientCommand {
     ChangeSide,
     Ready,
     SelectCountry,
+    PurchaseUpgrade,
     Ping
 };
 
@@ -61,6 +62,8 @@ inline const char* clientCommandToString(ClientCommand command) {
         return "Ready";
     case ClientCommand::SelectCountry:
         return "SelectCountry";
+    case ClientCommand::PurchaseUpgrade:
+        return "PurchaseUpgrade";
     case ClientCommand::Ping:
         return "Ping";
     }
@@ -101,6 +104,9 @@ inline std::optional<ClientCommand> parseClientCommand(std::string_view text) {
     }
     if (text == "SelectCountry") {
         return ClientCommand::SelectCountry;
+    }
+    if (text == "PurchaseUpgrade") {
+        return ClientCommand::PurchaseUpgrade;
     }
     if (text == "Ping") {
         return ClientCommand::Ping;

@@ -67,6 +67,10 @@ struct SelectCountry {
     std::string countryName;
 };
 
+struct PurchaseUpgrade {
+    std::string upgradeId;
+};
+
 using UIRequest = std::variant<
     None,
     MainMenu,
@@ -75,7 +79,8 @@ using UIRequest = std::variant<
     RoomRequest,
     ChoosingSide,
     Game,
-    SelectCountry
+    SelectCountry,
+    PurchaseUpgrade
 >;
 
 }  // namespace plague::request

@@ -232,6 +232,7 @@ private:
     void focusTab(std::size_t tabIndex);
     void focusNextTab();
     void focusPrevTab();
+    request::UIRequest purchaseSelectedUpgrade() const;
 };
 
 }

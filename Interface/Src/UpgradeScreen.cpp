@@ -131,6 +131,20 @@ void UpgradeScreen::focusPrevTab() {
     focusTab(current == 0 ? tabCount_ - 1 : current - 1);
 }
 
+request::UIRequest UpgradeScreen::purchaseSelectedUpgrade() const {
+    if (upgradeList_ == nullptr) {
+        return request::None{};
+    }
+
+    const UpgradeListItem * selected = upgradeList_->selectedItem();
+    if (selected == nullptr || selected->purchased || !selected->available ||
+        selected->upgrade.cost > snapshot_.playerInfo.points) {
+        return request::None{};
+    }
+
+    return request::PurchaseUpgrade{selected->upgrade.id};
+}
+
 void UpgradeScreen::resize() {
     layout();
 }
@@ -146,6 +160,10 @@ void UpgradeScreen::updateSnapshot(const GameSnapshot & snapshot) {
 request::UIRequest UpgradeScreen::handleInput(int key) {
     if (key == 27) {
         return request::Game::Back;
+    }
+
+    if ((key == KEY_ENTER || key == '\n' || key == '\r') && focusedIndex_ == listIndex_) {
+        return purchaseSelectedUpgrade();
     }
 
     const InputResult result = handleFocusedInput(key);
