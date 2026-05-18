@@ -4,6 +4,7 @@
 #include "Window.hpp"
 #include "utilities.hpp"
 #include <algorithm>
+#include <chrono>
 #include <cctype>
 #include <climits>
 #include <cstddef>
@@ -27,6 +28,13 @@ bool isPrintableCharKey(int key) {
     return key >= 0 &&
            key <= UCHAR_MAX &&
            std::isprint(static_cast<unsigned char>(key));
+}
+
+bool blinkVisible() {
+    using namespace std::chrono;
+    constexpr auto blinkInterval = 500ms;
+    const auto ticks = steady_clock::now().time_since_epoch() / blinkInterval;
+    return ticks % 2 == 0;
 }
 
 std::string repeatText(std::string_view text, int count) {
@@ -306,8 +314,24 @@ void Dialog::select(std::size_t index) {
 TextInput::TextInput(Window & win) : Widget(win) {}
 
 void TextInput::draw() {
-    const std::string view = clipped(text_, rect_.width);
+    if (rect_.height <= 0 || rect_.width <= 0) {
+        return;
+    }
+
+    const std::size_t width = static_cast<std::size_t>(rect_.width);
+    const std::size_t offset = cursor_ >= width ? cursor_ - width + 1 : 0;
+    const std::string view = clipped(text_.substr(offset), rect_.width);
     win_.print(rect_.y, rect_.x, view + repeat(' ', rect_.width - static_cast<int>(view.size())));
+
+    if (!focused_ || !blinkVisible()) {
+        return;
+    }
+
+    const std::size_t cursorX = cursor_ - offset;
+    const char cursorChar = cursorX < view.size() ? view[cursorX] : ' ';
+    win_.attrOn(A_REVERSE);
+    win_.print(rect_.y, rect_.x + static_cast<int>(cursorX), std::string(1, cursorChar));
+    win_.attrOff(A_REVERSE);
 }
 
 InputResult TextInput::handleInput(int key) {
