@@ -88,12 +88,15 @@ private:
     TextInput * createPassword_ = nullptr;
     VariableInfo * status_ = nullptr;
     GameSnapshot snapshot_{};
+    bool roomNavigationMode_ = false;
 
     void layout();
     void updateRooms();
     void updateStatus();
     request::UIRequest joinSelectedRoom() const;
     request::UIRequest createRoom() const;
+    void focusNextField();
+    void focusPrevField();
 };
 
 class ChoosingSideScreen final : public Screen {

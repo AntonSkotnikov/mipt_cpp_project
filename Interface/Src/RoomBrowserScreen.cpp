@@ -82,7 +82,7 @@ RoomBrowserScreen::RoomBrowserScreen(Config & cfg, Window & win) : Screen(cfg, w
 
     updateRooms();
     layout();
-    focusFirst();
+    focusWidget(selectedPasswordIndex_);
 }
 
 void RoomBrowserScreen::updateSnapshot(const GameSnapshot & snapshot) {
@@ -218,6 +218,34 @@ void RoomBrowserScreen::resize() {
     layout();
 }
 
+void RoomBrowserScreen::focusNextField() {
+    static constexpr std::array<std::size_t, 6> fieldIndices = {
+        selectedPasswordIndex_,
+        createNameIndex_,
+        createPasswordIndex_,
+        joinButtonIndex_,
+        createButtonIndex_,
+        backButtonIndex_
+    };
+
+    focusWidget(fieldIndices[wrappedIndexNear(fieldIndices, focusedIndex_, 1)]);
+    roomNavigationMode_ = false;
+}
+
+void RoomBrowserScreen::focusPrevField() {
+    static constexpr std::array<std::size_t, 6> fieldIndices = {
+        selectedPasswordIndex_,
+        createNameIndex_,
+        createPasswordIndex_,
+        joinButtonIndex_,
+        createButtonIndex_,
+        backButtonIndex_
+    };
+
+    focusWidget(fieldIndices[wrappedIndexNear(fieldIndices, focusedIndex_, -1)]);
+    roomNavigationMode_ = false;
+}
+
 request::UIRequest RoomBrowserScreen::handleInput(int key) {
     if (key == 27) {
         return request::RoomRequest{request::RoomAction::Back, "", ""};
@@ -234,24 +262,47 @@ request::UIRequest RoomBrowserScreen::handleInput(int key) {
     }
 
     switch (key) {
-        case KEY_UP:
+        case '\t':
+            if (roomList_ != nullptr && roomList_->focusable()) {
+                roomNavigationMode_ = true;
+                focusWidget(roomListIndex_);
+            }
+            updateStatus();
+            return request::None{};
+
         case KEY_BTAB:
-            focusPrev();
+            focusPrevField();
+            updateStatus();
+            return request::None{};
+
+        case KEY_UP:
+            if (roomNavigationMode_ && focusedIndex_ != roomListIndex_) {
+                focusWidget(roomListIndex_);
+            } else if (!roomNavigationMode_) {
+                focusPrevField();
+            }
             updateStatus();
             return request::None{};
 
         case KEY_DOWN:
-        case '\t':
-            focusNext();
+            if (roomNavigationMode_ && focusedIndex_ != roomListIndex_) {
+                focusWidget(roomListIndex_);
+            } else if (!roomNavigationMode_) {
+                focusNextField();
+            }
             updateStatus();
             return request::None{};
 
         case KEY_LEFT:
-            focusWidget(roomListIndex_);
+            if (roomList_ != nullptr && roomList_->focusable()) {
+                roomNavigationMode_ = true;
+                focusWidget(roomListIndex_);
+            }
             updateStatus();
             return request::None{};
 
         case KEY_RIGHT:
+            roomNavigationMode_ = false;
             focusWidget(selectedPasswordIndex_);
             updateStatus();
             return request::None{};

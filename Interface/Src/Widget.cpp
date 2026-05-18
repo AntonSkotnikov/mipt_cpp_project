@@ -675,7 +675,7 @@ void RoomList::draw() {
         std::string line = clipped(item.name + suffix, rect_.width);
         line += repeat(' ', rect_.width - static_cast<int>(line.size()));
 
-        const bool selected = focused_ && i == selectedIndex_;
+        const bool selected = i == selectedIndex_;
         if (selected) {
             if (has_colors()) {
                 win_.attrOn(COLOR_PAIR(selectedCountryColorPair) | A_BOLD);
