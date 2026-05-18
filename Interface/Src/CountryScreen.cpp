@@ -1,6 +1,59 @@
 #include "ScreenShared.hpp"
 
+#include <iomanip>
+#include <sstream>
+
 namespace plague::ui {
+
+namespace {
+
+std::string percentText(double value, double total) {
+    const double percent = total <= 0.0 ? 0.0 : value * 100.0 / total;
+    std::ostringstream out;
+    out << std::fixed << std::setprecision(2) << percent << "%";
+    return out.str();
+}
+
+const char * climateLabel(int climate) {
+    switch (climate) {
+        case 1: return "cold";
+        case 2: return "cool";
+        case 3: return "temperate";
+        case 4: return "warm";
+        case 5: return "tropical";
+        default: return "unknown";
+    }
+}
+
+std::string countryDetailsText(const Country & country, const CountryParams & params, bool highlighted) {
+    std::ostringstream out;
+    out << country.name
+        << "\n\nPopulation"
+        << "\nInitial: " << formatCount(populationCount(country.pop.initial))
+        << "\nAlive: " << formatCount(countryAliveCount(country))
+        << "\nSusceptible: " << formatCount(populationCount(country.pop.susceptible))
+        << " (" << percentText(country.pop.susceptible, country.pop.initial) << ")"
+        << "\nExposed: " << formatCount(populationCount(country.pop.exposed))
+        << " (" << percentText(country.pop.exposed, country.pop.initial) << ")"
+        << "\nInfected: " << formatCount(populationCount(country.pop.infected))
+        << " (" << percentText(country.pop.infected, country.pop.initial) << ")"
+        << "\nRecovered: " << formatCount(populationCount(country.pop.recovered))
+        << " (" << percentText(country.pop.recovered, country.pop.initial) << ")"
+        << "\nDead: " << formatCount(countryDeadCount(country))
+        << " (" << percentText(country.pop.dead, country.pop.initial) << ")"
+        << "\n\nCountry profile"
+        << "\nMedicine: " << params.medicine << " / 5"
+        << "\nClimate: " << params.climate << " / 5 (" << climateLabel(params.climate) << ")"
+        << "\nUrbanization: " << params.urbanization << " / 5"
+        << "\nGovernment reaction: " << params.governmentReaction << " / 5"
+        << "\n\nMobility"
+        << "\nBorder openness: " << std::fixed << std::setprecision(1) << country.borderOpenness
+        << "\nBorders: " << (country.bordersClosed ? "closed" : "open")
+        << "\nEvent highlight: " << (highlighted ? "yes" : "no");
+    return out.str();
+}
+
+}
 
 CountryScreen::CountryScreen(Config & cfg, Window & win)
     : InfoNavigationScreen(cfg, win) {
@@ -60,7 +113,17 @@ void CountryScreen::updateSelectedCountryInfo() {
     }
 
     const std::size_t index = std::min(countryMenu_->selectedIndex(), lowMapCountries.size() - 1);
-    countryInfo_->changeText(std::string(lowMapCountries[index]) + "\n\nCountry information\n\nWIP");
+    const std::string_view countryName = lowMapCountries[index];
+    if (const Country * country = findCountry(snapshot_.countries, countryName)) {
+        const bool highlighted = index < snapshot_.highlightedCountries.size() && snapshot_.highlightedCountries[index];
+        countryInfo_->changeText(countryDetailsText(*country, countryParamsForName(countryName), highlighted));
+        return;
+    }
+
+    countryInfo_->changeText(
+        std::string(countryName) +
+        "\n\nNo live country data yet.\nWaiting for the next game snapshot."
+    );
 }
 
 void CountryScreen::afterHandledInput() {
@@ -69,6 +132,11 @@ void CountryScreen::afterHandledInput() {
 
 void CountryScreen::resize() {
     layout();
+}
+
+void CountryScreen::updateSnapshot(const GameSnapshot & snapshot) {
+    snapshot_ = snapshot;
+    updateSelectedCountryInfo();
 }
 
 }  // namespace plague::ui

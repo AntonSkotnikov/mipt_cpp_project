@@ -122,9 +122,12 @@ void selectScreenForSituation(Config & cfg, ScreenManager & manager, const GameS
             }
             selectGameScreen(manager, cfg.id);
             manager.game_.updateSnapshot(snap);
+            manager.pathogen_.updateSnapshot(snap);
             manager.transmission_.updateSnapshot(snap);
             manager.clinic_.updateSnapshot(snap);
             manager.abilities_.updateSnapshot(snap);
+            manager.cure_.updateSnapshot(snap);
+            manager.country_.updateSnapshot(snap);
             manager.news_.updateSnapshot(snap);
             break;
 
