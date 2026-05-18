@@ -182,6 +182,7 @@ public:
 
     request::UIRequest handleInput(int key) override;
     void resize() override;
+    void updateSnapshot(const GameSnapshot & snapshot);
 private:
     static constexpr std::size_t tabCount_ = 3;
     static constexpr std::size_t listIndex_ = tabCount_;
@@ -190,6 +191,7 @@ private:
     UpgradeCategory category_;
     UpgradeList * upgradeList_ = nullptr;
     Info * description_ = nullptr;
+    GameSnapshot snapshot_{};
 
     void layout();
     void updateDescription();

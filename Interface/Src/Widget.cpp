@@ -641,10 +641,9 @@ void Menu::select(std::size_t index) {
 UpgradeList::UpgradeList(Window & win) : Widget(win) {}
 
 void UpgradeList::setItems(std::vector<UpgradeListItem> items) {
+    const std::size_t previousIndex = selectedIndex_;
     items_ = std::move(items);
-    selectedIndex_ = 0;
-    firstVisibleIndex_ = 0;
-    select(selectedIndex_);
+    select(previousIndex);
 }
 
 void UpgradeList::setRect(Rect rect) {

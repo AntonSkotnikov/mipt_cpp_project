@@ -8,6 +8,7 @@
 #include "Window.hpp"
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -106,18 +107,6 @@ constexpr std::array<const char *, 3> upgradeTabLabels = {
     "Clinic",
     "Abilities"
 };
-
-const std::array<UpgradeDefinition, 9> upgradeCatalog = {{
-    {"air_1", UpgradeCategory::Transmission, "Air I", 3, "Improves airborne transmission.\n\nEffects are not implemented yet.", {}},
-    {"water_1", UpgradeCategory::Transmission, "Water I", 4, "Improves water transmission.\n\nEffects are not implemented yet.", {}},
-    {"air_2", UpgradeCategory::Transmission, "Air II", 7, "A stronger airborne transmission upgrade.\n\nRequires Air I.", {"air_1"}},
-    {"cure_delay", UpgradeCategory::Clinic, "Cure Delay", 5, "Slows research progress.\n\nEffects are not implemented yet.", {}},
-    {"clinic_overload", UpgradeCategory::Clinic, "Clinic Overload", 8, "Pressures medical systems.\n\nRequires Cure Delay.", {"cure_delay"}},
-    {"research_noise", UpgradeCategory::Clinic, "Research Noise", 6, "Makes cure data less reliable.\n\nEffects are not implemented yet.", {}},
-    {"cold_resistance", UpgradeCategory::Abilities, "Cold Resistance", 4, "Improves survival in cold regions.\n\nEffects are not implemented yet.", {}},
-    {"heat_resistance", UpgradeCategory::Abilities, "Heat Resistance", 4, "Improves survival in hot regions.\n\nEffects are not implemented yet.", {}},
-    {"drug_resistance", UpgradeCategory::Abilities, "Drug Resistance", 9, "Improves survival in wealthy regions.\n\nRequires Cold Resistance and Heat Resistance.", {"cold_resistance", "heat_resistance"}}
-}};
 
 std::string formatCount(std::uint64_t value) {
     std::string text = std::to_string(value);
@@ -317,19 +306,49 @@ std::size_t upgradeTabIndex(UpgradeCategory category) {
     return 0;
 }
 
-std::vector<UpgradeListItem> upgradeItemsFor(UpgradeCategory category) {
-    std::vector<UpgradeId> purchasedUpgrades;
+bool containsUpgrade(const std::vector<UpgradeId> & upgrades, const UpgradeId & id) {
+    return std::find(upgrades.begin(), upgrades.end(), id) != upgrades.end();
+}
+
+std::string titleFromUpgradeId(const UpgradeId & id) {
+    std::string title;
+    title.reserve(id.size());
+    bool capitalizeNext = true;
+
+    for (const char ch : id) {
+        if (ch == '_' || ch == '-') {
+            title.push_back(' ');
+            capitalizeNext = true;
+            continue;
+        }
+
+        title.push_back(capitalizeNext ? static_cast<char>(std::toupper(static_cast<unsigned char>(ch))) : ch);
+        capitalizeNext = false;
+    }
+
+    return title.empty() ? "Unnamed upgrade" : title;
+}
+
+UpgradeDefinition normalizedUpgrade(UpgradeDefinition upgrade) {
+    if (upgrade.title.empty()) {
+        upgrade.title = titleFromUpgradeId(upgrade.id);
+    }
+    return upgrade;
+}
+
+std::vector<UpgradeListItem> upgradeItemsFor(const GameSnapshot & snapshot, UpgradeCategory category) {
     std::vector<UpgradeListItem> items;
 
-    for (const UpgradeDefinition & upgrade : upgradeCatalog) {
+    for (const UpgradeDefinition & source : snapshot.availableUpgrades) {
+        UpgradeDefinition upgrade = normalizedUpgrade(source);
         if (upgrade.category != category) {
             continue;
         }
 
         items.push_back({
             upgrade,
-            dependenciesSatisfied(upgrade, purchasedUpgrades),
-            false
+            dependenciesSatisfied(upgrade, snapshot.purchasedUpgrades),
+            containsUpgrade(snapshot.purchasedUpgrades, upgrade.id)
         });
     }
 
@@ -1360,7 +1379,7 @@ UpgradeScreen::UpgradeScreen(Config & cfg, Window & win, UpgradeCategory categor
 
     auto upgradeList = std::make_unique<UpgradeList>(win_);
     upgradeList_ = upgradeList.get();
-    upgradeList_->setItems(upgradeItemsFor(category_));
+    upgradeList_->setItems(upgradeItemsFor(snapshot_, category_));
     widgets.push_back(std::make_unique<LabelDecorator>(
         win_,
         std::make_unique<FrameDecorator>(win_, std::move(upgradeList)),
@@ -1478,6 +1497,14 @@ void UpgradeScreen::focusPrevTab() {
 
 void UpgradeScreen::resize() {
     layout();
+}
+
+void UpgradeScreen::updateSnapshot(const GameSnapshot & snapshot) {
+    snapshot_ = snapshot;
+    if (upgradeList_ != nullptr) {
+        upgradeList_->setItems(upgradeItemsFor(snapshot_, category_));
+    }
+    updateDescription();
 }
 
 request::UIRequest UpgradeScreen::handleInput(int key) {
