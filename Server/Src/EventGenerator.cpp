@@ -73,28 +73,28 @@ EventResult EventGenerator::generateEvent(World& world, int day,
 
     if (!hasInfection) {
         result = tryFirstInfection(world);
-        if (result.type != EventType::None) {
+        if (result.eventId != 0) {
             return result;
         }
     }
 
     result = trySpecialEvent(world, day);
-    if (result.type != EventType::None) {
+    if (result.eventId != 0) {
         return result;
     }
 
     result = tryTransportMovement(world);
-    if (result.type != EventType::None) {
+    if (result.eventId != 0) {
         return result;
     }
 
     result = tryDNAClickOpportunity(world, day);
-    if (result.type != EventType::None) {
+    if (result.eventId != 0) {
         return result;
     }
 
     result = tryBorderUpgrade(world, humanityDNA);
-    if (result.type != EventType::None) {
+    if (result.eventId != 0) {
         return result;
     }
 
@@ -124,7 +124,9 @@ EventResult EventGenerator::tryFirstInfection(World& world) {
         country.pop.susceptible -= infectedCount;
         country.pop.exposed += infectedCount;
 
-        result.type = EventType::FirstInfection;
+        // Генерируем ID события
+        result.eventId = world.nextEventId++;
+        result.type = EventType::NEWS_FIRST_INFECTION;
         result.countryIndex = static_cast<size_t>(countryIdx);
         result.infectedCount = infectedCount;
 
@@ -132,6 +134,19 @@ EventResult EventGenerator::tryFirstInfection(World& world) {
         ss << "First infection in " << country.name
            << "! " << infectedCount << " people infected.";
         result.description = ss.str();
+
+        // Добавляем новость в очередь мира
+        GameNews news(
+            EventType::NEWS_FIRST_INFECTION,
+            "First Infection!",
+            "The virus has been detected in " + country.name + ". " +
+            std::to_string(infectedCount) + " people are now exposed.",
+            country.name,
+            static_cast<uint64_t>(countryIdx),
+            result.eventId,
+            0  // день будет установлен в основном цикле
+        );
+        world.addNews(news);
     }
 
     return result;
@@ -180,7 +195,8 @@ EventResult EventGenerator::tryTransportMovement(World& world) {
         1.0
     );
 
-    result.type = EventType::TransportMovement;
+    result.eventId = world.nextEventId++;
+    result.type = EventType::NEWS_FIRST_INFECTION; // Временно используем этот тип
     result.fromCountry = conn.from;
     result.toCountry = conn.to;
     result.routeType = RouteType::Air;
@@ -201,6 +217,21 @@ EventResult EventGenerator::tryTransportMovement(World& world) {
         result.infectedTransported = infectedCount;
 
         ss << " - transported " << infectedCount << " infected!";
+
+        // Если в стране назначения еще не было инфекции, это первое заражение
+        if (toCountry.pop.infected < 1.0 && toCountry.pop.exposed <= static_cast<double>(infectedCount + 10)) {
+            GameNews news(
+                EventType::NEWS_FIRST_INFECTION,
+                "Virus Spreads!",
+                "The virus has arrived in " + toCountry.name + " via transport from " + fromCountry.name + ". " +
+                std::to_string(infectedCount) + " new cases detected.",
+                toCountry.name,
+                static_cast<uint64_t>(conn.to),
+                result.eventId,
+                0
+            );
+            world.addNews(news);
+        }
     } else {
         ss << " - no infected.";
     }
@@ -307,9 +338,23 @@ EventResult EventGenerator::trySpecialEvent(World& world, int day) {
 
     activeEvents_.emplace_back(effect, effect.duration);
 
-    result.type = EventType::SpecialEvent;
+    result.eventId = world.nextEventId++;
+    result.type = EventType::NEWS_EVENT_GLOBAL;
     result.specialEvent = effect;
     result.description = effect.description;
+
+    // Добавляем новость о специальном событии
+    std::string title = "Global Event!";
+    GameNews news(
+        EventType::NEWS_EVENT_GLOBAL,
+        title,
+        effect.description,
+        "",
+        0,
+        result.eventId,
+        day
+    );
+    world.addNews(news);
 
     return result;
 }
@@ -361,7 +406,8 @@ EventResult EventGenerator::tryDNAClickOpportunity(World& world, int day) {
     int dnaAmount = params_.baseDNAAmount + static_cast<int>(infectionRate * 20);
     dnaAmount = std::max(1, dnaAmount);
 
-    result.type = EventType::DNAClickOpportunity;
+    result.eventId = world.nextEventId++;
+    result.type = EventType::ACTION_DNA_CLICK;
     result.highlightedCountry = static_cast<size_t>(countryIdx);
     result.dnaAmount = dnaAmount;
     result.playerIndex = -1;
@@ -370,6 +416,18 @@ EventResult EventGenerator::tryDNAClickOpportunity(World& world, int day) {
     ss << "Outbreak in " << country.name << "! "
        << "First player to click gets " << dnaAmount << " DNA!";
     result.description = ss.str();
+
+    // Добавляем новость о возможности получить DNA
+    GameNews news(
+        EventType::ACTION_DNA_CLICK,
+        "DNA Opportunity!",
+        "Click on " + country.name + " to get " + std::to_string(dnaAmount) + " DNA! First player wins.",
+        country.name,
+        static_cast<uint64_t>(countryIdx),
+        result.eventId,
+        day
+    );
+    world.addNews(news);
 
     lastDNAGrantDay_ = day;
 
@@ -393,7 +451,8 @@ EventResult EventGenerator::tryBorderUpgrade(World& world, int humanityDNA) {
         return result;
     }
 
-    result.type = EventType::BorderClosureUpgrade;
+    result.eventId = world.nextEventId++;
+    result.type = EventType::ACTION_BORDER_UPGRADE;
     result.dnaAmount = -params_.borderUpgradeCost;
     result.playerIndex = 1;
 
@@ -401,6 +460,19 @@ EventResult EventGenerator::tryBorderUpgrade(World& world, int humanityDNA) {
     ss << "Humanity purchased border closure upgrade for "
        << params_.borderUpgradeCost << " DNA!";
     result.description = ss.str();
+
+    // Добавляем новость об апгрейде
+    GameNews news(
+        EventType::ACTION_BORDER_UPGRADE,
+        "Border Upgrade!",
+        "Humanity has purchased a border closure upgrade for " +
+        std::to_string(params_.borderUpgradeCost) + " DNA.",
+        "",
+        0,
+        result.eventId,
+        0
+    );
+    world.addNews(news);
 
     return result;
 }

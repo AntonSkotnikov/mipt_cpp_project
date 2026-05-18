@@ -27,16 +27,6 @@ struct RouteParams {
         : type(t), routesPerDay(rpd), passengersPerRoute(ppr), speedModifier(sm) {}
 };
 
-// ========== ТИПЫ СОБЫТИЙ ==========
-enum class EventType {
-    FirstInfection,         // Первое заражение в стране
-    TransportMovement,      // Перемещение транспорта между странами
-    SpecialEvent,           // Специальное событие (Олимпиада, погода, бедствия)
-    DNAClickOpportunity,    // Возможность получить DNA за клик по заражённой стране
-    BorderClosureUpgrade,   // Человечество покупает апгрейд закрытия границ
-    None                    // Событие не произошло
-};
-
 // ========== ТИПЫ СПЕЦИАЛЬНЫХ СОБЫТИЙ ==========
 enum class SpecialEventType {
     Olympics,               // Олимпийские игры (увеличивает транспорт)
@@ -62,7 +52,7 @@ struct SpecialEventEffect {
 
 // ========== РЕЗУЛЬТАТ СОБЫТИЯ ==========
 struct EventResult {
-    EventType type;
+    EventType type;  // Используем EventType из SimulationTypes.hpp
     std::string description;
 
     // Для первого заражения
@@ -88,7 +78,10 @@ struct EventResult {
     // Для закрытия границ
     size_t closedCountry = 0;
 
-    EventResult() : type(EventType::None) {}
+    // ID события для реакции клиента
+    uint64_t eventId = 0;
+
+    EventResult() : type(EventType::NEWS_FIRST_INFECTION) {}
 };
 
 // ========== ПАРАМЕТРЫ ГЕНЕРАТОРА ==========
@@ -130,21 +123,11 @@ public:
 
     void seed(uint32_t seed);
 
-    /**
-     * @brief Сгенерировать событие для одного дня симуляции
-     */
     EventResult generateEvent(World& world, int day,
                               int pathogenDNA, int humanityDNA);
 
-    /**
-     * @brief Обработать клик игрока по заражённой стране
-     * @return Количество полученной DNA (0 если не получилось)
-     */
     int handleCountryClick(size_t countryIdx, int playerIndex);
 
-    /**
-     * @brief Обновить активные специальные события
-     */
     void updateActiveEvents(World& world);
 
     const EventGeneratorParams& getParams() const { return params_; }
