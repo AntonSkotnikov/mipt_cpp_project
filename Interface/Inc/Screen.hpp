@@ -152,6 +152,7 @@ private:
     void focusNextActionButton();
     void focusPrevActionButton();
     void toggleNavigationMode();
+    void showWorldOverview();
     void updateNewsTicker();
     void updateCountryHighlights();
     void updatePopulationInfo();
