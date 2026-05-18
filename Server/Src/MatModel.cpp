@@ -6,7 +6,6 @@
 #include <algorithm>
 #include <cmath>
 #include <random>
-
 namespace plague {
 
 // ---------- Инициализация связей (с использованием CountryConnection) ----------

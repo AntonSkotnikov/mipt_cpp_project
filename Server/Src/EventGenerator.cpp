@@ -1,6 +1,8 @@
 #include "EventGenerator.hpp"
+#include "SimulationTypes.hpp"
 #include <sstream>
 #include <algorithm>
+
 
 namespace plague {
 
