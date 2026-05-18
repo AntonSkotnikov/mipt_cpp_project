@@ -24,6 +24,7 @@ enum class ScreenIds {
     SmallTerm,
     MainMenu,
     Connect,
+    Rooms,
     Settings,
     Game,
     Info,

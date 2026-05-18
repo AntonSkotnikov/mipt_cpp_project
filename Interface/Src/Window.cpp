@@ -54,7 +54,33 @@ void Window::refresh() {
 }
 
 void Window::print(int y, int x, std::string_view text) {
-    mvwaddnstr(win_, y, x, text.data(), static_cast<int>(text.size()));
+    if (y < 0 || y >= height_ || x >= width_ || text.empty()) {
+        return;
+    }
+
+    std::size_t offset = 0;
+    if (x < 0) {
+        offset = static_cast<std::size_t>(std::min<int>(-x, static_cast<int>(text.size())));
+        x = 0;
+    }
+
+    if (offset >= text.size()) {
+        return;
+    }
+
+    if (width_ - x <= 0) {
+        return;
+    }
+
+    std::string_view clippedText = text.substr(offset);
+    const bool asciiOnly = std::all_of(clippedText.begin(), clippedText.end(), [](unsigned char ch) {
+        return ch < 128;
+    });
+    if (asciiOnly) {
+        clippedText = clippedText.substr(0, static_cast<std::size_t>(width_ - x));
+    }
+
+    mvwaddnstr(win_, y, x, clippedText.data(), static_cast<int>(clippedText.size()));
 }
 
 void Window::printCentered(int y, std::string_view text) {

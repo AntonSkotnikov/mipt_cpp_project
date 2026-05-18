@@ -41,6 +41,7 @@ enum class GameSituation {
     ConnectingToServer = СonnectingToServer,
     ConnectingToServerFailed,
 
+    RoomBrowser,
     ChoosingSide,
     Game,
     EndScreen,

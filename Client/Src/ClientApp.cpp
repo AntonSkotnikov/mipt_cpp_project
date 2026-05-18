@@ -368,6 +368,8 @@ const char* situationName(GameSituation situation) {
         return "ConnectingToServer";
     case GameSituation::ConnectingToServerFailed:
         return "ConnectingToServerFailed";
+    case GameSituation::RoomBrowser:
+        return "RoomBrowser";
     case GameSituation::ChoosingSide:
         return "ChoosingSide";
     case GameSituation::Game:
@@ -722,6 +724,9 @@ void ClientApp::handleUserAction(const UserAction& request) {
     case GameSituation::ConnectingToServerFailed:
         resetStateForMenu();
         setSituation(GameSituation::MainMenu);
+        break;
+
+    case GameSituation::RoomBrowser:
         break;
 
     case GameSituation::ChoosingSide:

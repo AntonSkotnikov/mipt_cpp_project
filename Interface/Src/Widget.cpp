@@ -638,6 +638,125 @@ void Menu::select(std::size_t index) {
     layoutButtons();
 }
 
+RoomList::RoomList(Window & win) : Widget(win) {}
+
+void RoomList::setItems(std::vector<RoomListItem> items) {
+    const std::size_t previousIndex = selectedIndex_;
+    items_ = std::move(items);
+    select(previousIndex);
+}
+
+void RoomList::setRect(Rect rect) {
+    Widget::setRect(rect);
+    select(selectedIndex_);
+}
+
+void RoomList::setFocus(bool value) {
+    Widget::setFocus(value);
+}
+
+void RoomList::draw() {
+    if (rect_.height <= 0 || rect_.width <= 0) {
+        return;
+    }
+
+    if (items_.empty()) {
+        win_.print(rect_.y, rect_.x, clipped("No rooms available", rect_.width));
+        return;
+    }
+
+    const std::size_t count = selectableCount();
+    const std::size_t lastVisibleIndex = std::min(items_.size(), firstVisibleIndex_ + count);
+
+    for (std::size_t i = firstVisibleIndex_; i < lastVisibleIndex; i++) {
+        const RoomListItem & item = items_[i];
+        std::string suffix = item.privateRoom ? " [private]" : " [public]";
+        suffix += " " + std::to_string(item.players) + "/" + std::to_string(item.capacity);
+        std::string line = clipped(item.name + suffix, rect_.width);
+        line += repeat(' ', rect_.width - static_cast<int>(line.size()));
+
+        const bool selected = focused_ && i == selectedIndex_;
+        if (selected) {
+            if (has_colors()) {
+                win_.attrOn(COLOR_PAIR(selectedCountryColorPair) | A_BOLD);
+            } else {
+                win_.attrOn(A_REVERSE);
+            }
+        }
+
+        win_.print(rect_.y + static_cast<int>(i - firstVisibleIndex_), rect_.x, line);
+
+        if (selected) {
+            if (has_colors()) {
+                win_.attrOff(COLOR_PAIR(selectedCountryColorPair) | A_BOLD);
+            } else {
+                win_.attrOff(A_REVERSE);
+            }
+        }
+    }
+}
+
+InputResult RoomList::handleInput(int key) {
+    if (items_.empty()) {
+        return {};
+    }
+
+    switch (key) {
+        case KEY_UP:
+            if (selectedIndex_ == 0) return {false, request::None{}};
+            select(selectedIndex_ - 1);
+            return {true, request::None{}};
+
+        case KEY_DOWN:
+            if (selectedIndex_ == items_.size() - 1) return {false, request::None{}};
+            select(selectedIndex_ + 1);
+            return {true, request::None{}};
+
+        case KEY_ENTER:
+        case '\n':
+        case '\r':
+            return {true, request::None{}};
+    }
+
+    return {};
+}
+
+std::size_t RoomList::selectableCount() const {
+    if (rect_.height <= 0) {
+        return 0;
+    }
+
+    return std::min(static_cast<std::size_t>(rect_.height), items_.size());
+}
+
+void RoomList::select(std::size_t index) {
+    if (items_.empty() || selectableCount() == 0) {
+        selectedIndex_ = 0;
+        firstVisibleIndex_ = 0;
+        return;
+    }
+
+    selectedIndex_ = std::min(index, items_.size() - 1);
+
+    const std::size_t visibleItems = selectableCount();
+    if (selectedIndex_ < firstVisibleIndex_) {
+        firstVisibleIndex_ = selectedIndex_;
+    } else if (selectedIndex_ >= firstVisibleIndex_ + visibleItems) {
+        firstVisibleIndex_ = selectedIndex_ - visibleItems + 1;
+    }
+
+    const std::size_t maxFirstVisibleIndex = items_.size() - visibleItems;
+    firstVisibleIndex_ = std::min(firstVisibleIndex_, maxFirstVisibleIndex);
+}
+
+const RoomListItem * RoomList::selectedItem() const {
+    if (selectedIndex_ >= items_.size()) {
+        return nullptr;
+    }
+
+    return &items_[selectedIndex_];
+}
+
 UpgradeList::UpgradeList(Window & win) : Widget(win) {}
 
 void UpgradeList::setItems(std::vector<UpgradeListItem> items) {

@@ -62,7 +62,38 @@ public:
     request::UIRequest handleInput(int key) override;
     void resize() override;
 private:
+	    void layout();
+	};
+
+class RoomBrowserScreen final : public Screen {
+public:
+    RoomBrowserScreen(Config & cfg, Window & win);
+
+    request::UIRequest handleInput(int key) override;
+    void resize() override;
+    void updateSnapshot(const GameSnapshot & snapshot);
+private:
+    static constexpr std::size_t roomListIndex_ = 0;
+    static constexpr std::size_t selectedPasswordIndex_ = 1;
+    static constexpr std::size_t createNameIndex_ = 2;
+    static constexpr std::size_t createPasswordIndex_ = 3;
+    static constexpr std::size_t statusIndex_ = 4;
+    static constexpr std::size_t joinButtonIndex_ = 5;
+    static constexpr std::size_t createButtonIndex_ = 6;
+    static constexpr std::size_t backButtonIndex_ = 7;
+
+    RoomList * roomList_ = nullptr;
+    TextInput * selectedPassword_ = nullptr;
+    TextInput * createName_ = nullptr;
+    TextInput * createPassword_ = nullptr;
+    VariableInfo * status_ = nullptr;
+    GameSnapshot snapshot_{};
+
     void layout();
+    void updateRooms();
+    void updateStatus();
+    request::UIRequest joinSelectedRoom() const;
+    request::UIRequest createRoom() const;
 };
 
 class ChoosingSideScreen final : public Screen {

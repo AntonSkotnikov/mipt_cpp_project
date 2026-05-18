@@ -197,7 +197,35 @@ public:
     void draw() override;
     InputResult handleInput(int key) override;
     bool focusable() const override { return !buttons_.empty(); }
+	    std::size_t selectedIndex() const { return selectedIndex_; }
+	};
+
+struct RoomListItem {
+    std::string name;
+    bool privateRoom = false;
+    std::size_t players = 0;
+    std::size_t capacity = 2;
+};
+
+class RoomList final : public Widget {
+private:
+    std::vector<RoomListItem> items_;
+    std::size_t selectedIndex_ = 0;
+    std::size_t firstVisibleIndex_ = 0;
+
+    std::size_t selectableCount() const;
+    void select(std::size_t index);
+public:
+    explicit RoomList(Window & win);
+
+    void setItems(std::vector<RoomListItem> items);
+    void setRect(Rect rect) override;
+    void setFocus(bool value) override;
+    void draw() override;
+    InputResult handleInput(int key) override;
+    bool focusable() const override { return !items_.empty(); }
     std::size_t selectedIndex() const { return selectedIndex_; }
+    const RoomListItem * selectedItem() const;
 };
 
 struct UpgradeListItem {

@@ -22,6 +22,18 @@ enum class Connect {
     Connect
 };
 
+enum class RoomAction {
+    Back,
+    Join,
+    Create
+};
+
+struct RoomRequest {
+    RoomAction action;
+    std::string roomName;
+    std::string password;
+};
+
 enum class ChoosingSideAction {
     SelectSubtype,
     ChangeSide,
@@ -60,6 +72,7 @@ using UIRequest = std::variant<
     MainMenu,
     Settings,
     ConnectInfo,
+    RoomRequest,
     ChoosingSide,
     Game,
     SelectCountry

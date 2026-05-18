@@ -13,6 +13,7 @@ Screen * screenById(ScreenManager & manager, ScreenIds id) {
         case ScreenIds::SmallTerm: return &manager.smallTerm_;
         case ScreenIds::MainMenu:  return &manager.mainMenu_;
         case ScreenIds::Connect:   return &manager.connect_;
+        case ScreenIds::Rooms:     return &manager.rooms_;
         case ScreenIds::Settings:  return &manager.mainMenu_;
         case ScreenIds::Game:      return &manager.game_;
         case ScreenIds::Info:      return &manager.pathogen_;
@@ -33,7 +34,8 @@ ScreenManager::ScreenManager(Config & cfg) : cfg_(cfg),
                                              mainWin_{terminalProfiles.at(cfg.resolution).height + deltaForBorders, terminalProfiles.at(cfg.resolution).width + deltaForBorders},
                                              smallTerm_{cfg, mainWin_},
                                              mainMenu_{cfg, mainWin_},
-                                             connect_(cfg, mainWin_),
+	                                             connect_(cfg, mainWin_),
+                                             rooms_(cfg, mainWin_),
                                              choosingSide_(cfg, mainWin_),
                                              game_{cfg, mainWin_},
                                              pathogen_{cfg, mainWin_},
@@ -55,6 +57,7 @@ void ScreenManager::resize() {
     smallTerm_.resize();
     mainMenu_.resize();
     connect_.resize();
+    rooms_.resize();
     choosingSide_.resize();
     game_.resize();
     pathogen_.resize();

@@ -4,10 +4,11 @@
 #include "MapParser.hpp"
 #include "Screen.hpp"
 #include "Settings.hpp"
+#include "SimulationTypes.hpp"
 #include "UIRequest.hpp"
+#include "UI_ClientAPI.hpp"
 #include "Upgrade.hpp"
 #include "Widget.hpp"
-#include "Window.hpp"
 
 #include <algorithm>
 #include <array>
@@ -16,8 +17,6 @@
 #include <cstdint>
 #include <cstdlib>
 #include <iterator>
-#include <limits>
-#include <memory>
 #include <ncurses.h>
 #include <string>
 #include <string_view>

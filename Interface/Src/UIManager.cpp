@@ -89,6 +89,7 @@ bool applyGameRequest(Config & cfg, ScreenManager & manager, request::Game reque
 bool shouldOpenDefaultGameScreen(ScreenIds id) {
     return id == ScreenIds::MainMenu ||
            id == ScreenIds::Connect ||
+           id == ScreenIds::Rooms ||
            id == ScreenIds::Settings;
 }
 
@@ -102,6 +103,12 @@ void selectScreenForSituation(Config & cfg, ScreenManager & manager, const GameS
         case plague::GameSituation::ConnectToServer:
         case plague::GameSituation::ConnectingToServer:
             manager.curScreen = &manager.connect_;
+            break;
+
+        case plague::GameSituation::RoomBrowser:
+            cfg.id = ScreenIds::Rooms;
+            manager.rooms_.updateSnapshot(snap);
+            manager.curScreen = &manager.rooms_;
             break;
 
         case plague::GameSituation::ChoosingSide:
@@ -179,7 +186,7 @@ request::UIRequest UIManager::loop(GameSnapshot snap) {
     selectScreenForSituation(cfg_, *man_, snap_);
 
 #ifdef DEBUGGAME
-    man_->curScreen = &man_->transmission_;
+    man_->curScreen = &man_->rooms_;
 #endif
 
     enforceSmallTerminalScreen(cfg_, *man_);
