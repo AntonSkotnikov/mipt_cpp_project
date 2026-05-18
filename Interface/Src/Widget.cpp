@@ -12,7 +12,9 @@
 #include <iterator>
 #include <memory>
 #include <ncurses.h>
+#include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace plague::ui {
@@ -20,6 +22,8 @@ namespace plague::ui {
 namespace {
 
 constexpr short selectedCountryColorPair = 1;
+constexpr short highlightedCountryColorPair = 2;
+constexpr short eventCountryColorPair = 4;
 bool isBackspaceKey(int key) {
     return key == KEY_BACKSPACE || key == 127 || key == '\b';
 }
@@ -379,30 +383,42 @@ void DetalizedImage::draw() {
         return;
     }
 
-    const bool drawSelected = focused_ && has_colors();
-    if (drawSelected) {
-        win_.attrOn(COLOR_PAIR(selectedCountryColorPair) | A_BOLD);
-    }
+    const bool canColor = has_colors();
 
-    for (const SymbolOnScreen & symbol : symbols) {
+    for (std::size_t i = 0; i < symbols.size(); i++) {
+        const SymbolOnScreen & symbol = symbols[i];
         if (symbol.y < 0 || symbol.x < 0 || symbol.y >= rect_.height || symbol.x >= rect_.width) {
             continue;
         }
 
-        win_.print(rect_.y + symbol.y, rect_.x + symbol.x, symbol.symbol);
-    }
+        const bool drawEventHighlight = canColor && eventHighlighted_;
+        const bool drawFocusedBorder =
+            canColor && focused_ && !drawEventHighlight && i < borderSymbols_.size() && borderSymbols_[i];
 
-    if (drawSelected) {
-        win_.attrOff(COLOR_PAIR(selectedCountryColorPair) | A_BOLD);
+        if (drawEventHighlight) {
+            win_.attrOn(COLOR_PAIR(eventCountryColorPair) | A_BOLD);
+        } else if (drawFocusedBorder) {
+            win_.attrOn(COLOR_PAIR(highlightedCountryColorPair) | A_BOLD);
+        }
+
+        win_.print(rect_.y + symbol.y, rect_.x + symbol.x, symbol.symbol);
+
+        if (drawEventHighlight) {
+            win_.attrOff(COLOR_PAIR(eventCountryColorPair) | A_BOLD);
+        } else if (drawFocusedBorder) {
+            win_.attrOff(COLOR_PAIR(highlightedCountryColorPair) | A_BOLD);
+        }
     }
 }
 
 void DetalizedImage::addSymbol(SymbolOnScreen newSymbol) {
     symbols.push_back(std::move(newSymbol));
+    updateBorderSymbols();
 }
 
 void DetalizedImage::clearSymbols() {
     symbols.clear();
+    borderSymbols_.clear();
 }
 
 void DetalizedImage::addSymbols(std::vector<SymbolOnScreen> newSymbols) {
@@ -411,6 +427,30 @@ void DetalizedImage::addSymbols(std::vector<SymbolOnScreen> newSymbols) {
         std::make_move_iterator(newSymbols.begin()),
         std::make_move_iterator(newSymbols.end())
     );
+    updateBorderSymbols();
+}
+
+void DetalizedImage::setEventHighlight(bool value) {
+    eventHighlighted_ = value;
+}
+
+void DetalizedImage::updateBorderSymbols() {
+    std::set<std::pair<int, int>> occupied;
+    for (const SymbolOnScreen & symbol : symbols) {
+        occupied.insert({symbol.y, symbol.x});
+    }
+
+    borderSymbols_.clear();
+    borderSymbols_.reserve(symbols.size());
+
+    for (const SymbolOnScreen & symbol : symbols) {
+        const bool isBorder =
+            !occupied.contains({symbol.y - 1, symbol.x}) ||
+            !occupied.contains({symbol.y + 1, symbol.x}) ||
+            !occupied.contains({symbol.y, symbol.x - 1}) ||
+            !occupied.contains({symbol.y, symbol.x + 1});
+        borderSymbols_.push_back(isBorder);
+    }
 }
 
 // Decorators

@@ -8,7 +8,7 @@ GameScreen::GameScreen(Config & cfg, Window & win) : Screen(cfg, win) {
     for (std::size_t i = 0; i < countryWidgetCount; i++) {
         auto countryImage = std::make_unique<DetalizedImage>(win_);
         countryImages_.push_back(countryImage.get());
-        widgets.push_back(std::make_unique<ColorDecorator>(win_, std::move(countryImage), COLOR_BLACK));
+        widgets.push_back(std::make_unique<ColorDecorator>(win_, std::move(countryImage), defaultColorPair));
     }
 
     loadCountryMaps();
@@ -125,6 +125,7 @@ void GameScreen::updateSnapshot(const GameSnapshot & snapshot) {
     }
 
     updateNewsTicker();
+    updateCountryHighlights();
     updatePopulationInfo();
     updateSelectedCountryInfo();
 }
@@ -144,6 +145,7 @@ void GameScreen::loadCountryMaps() {
         countryImages_[i]->addSymbols(std::move(symbols));
     }
 
+    updateCountryHighlights();
     loadedMapResolution_ = cfg_.resolution;
     countryMapsLoaded_ = true;
 }
@@ -237,6 +239,13 @@ void GameScreen::updateNewsTicker() {
     }
 
     displayedNewsCount_ = snapshot_.news.size();
+}
+
+void GameScreen::updateCountryHighlights() {
+    for (std::size_t i = 0; i < countryImages_.size(); i++) {
+        const bool highlighted = i < snapshot_.highlightedCountries.size() && snapshot_.highlightedCountries[i];
+        countryImages_[i]->setEventHighlight(highlighted);
+    }
 }
 
 void GameScreen::updatePopulationInfo() {

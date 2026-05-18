@@ -129,6 +129,10 @@ struct SymbolOnScreen {
 
 class DetalizedImage final : public Widget {
     std::vector<SymbolOnScreen> symbols;
+    std::vector<bool> borderSymbols_;
+    bool eventHighlighted_ = false;
+
+    void updateBorderSymbols();
 public:
     DetalizedImage(Window & win);
     void draw() override;
@@ -136,6 +140,7 @@ public:
     void clearSymbols();
     void addSymbol(SymbolOnScreen newSymbol);
     void addSymbols(std::vector<SymbolOnScreen> newSymbols);
+    void setEventHighlight(bool value);
 };
 
 //Decorators

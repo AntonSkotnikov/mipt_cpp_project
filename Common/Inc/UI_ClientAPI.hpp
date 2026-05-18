@@ -23,6 +23,7 @@ struct GameSnapshot {
     InfoAboutPlayer playerInfo;
     std::vector<RoomSummary> rooms{};
     std::vector<Country> countries{};
+    std::vector<bool> highlightedCountries{};
     double cureProgress = 0.0;
     std::vector<std::string> news{};
     std::vector<UpgradeDefinition> availableUpgrades{};
