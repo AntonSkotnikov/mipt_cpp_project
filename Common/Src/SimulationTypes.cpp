@@ -2,6 +2,9 @@
 
 namespace plague {
 
+// ========== РЕАЛИЗАЦИЯ МЕТОДОВ СИМУЛЯЦИОННЫХ ТИПОВ ==========
+
+// CountryParams
 double CountryParams::getScienceFactor() const {
     return medicine / 5.0;
 }
@@ -18,6 +21,7 @@ double CountryParams::getBorderCloseSpeed() const {
     return governmentReaction / 5.0;
 }
 
+// Population
 Population::Population(double total)
     : initial(total), susceptible(total), exposed(0),
       infected(0), recovered(0), dead(0) {}
@@ -26,15 +30,16 @@ double Population::alive() const {
     return susceptible + exposed + infected + recovered;
 }
 
+// Country
 Country::Country() : borderOpenness(1.0), bordersClosed(false) {}
 
+// Virus
 double Virus::getClimateModifier(int climateLevel) const {
-    if (climateLevel < 1 || climateLevel > 5) {
-        return 1.0;
-    }
-    return climateModifiers[static_cast<std::size_t>(climateLevel - 1)];
+    if (climateLevel < 1 || climateLevel > 5) return 1.0;
+    return climateModifiers[climateLevel - 1];
 }
 
+// Humanity
 double Humanity::getGlobalScientists() const {
     return scientistCommitment * 10000.0;
 }
@@ -43,6 +48,7 @@ double Humanity::getBorderCloseThreshold() const {
     return 0.3 - awareness * 0.2;
 }
 
+// Vaccine
 Vaccine::Vaccine() : progress(0), spreadRate(0.005), isReady(false), efficacy(0.95) {}
 
 void Vaccine::updateProgress(double delta) {
@@ -53,14 +59,14 @@ void Vaccine::updateProgress(double delta) {
     }
 }
 
+// CountryConnection
 CountryConnection::CountryConnection(size_t f, size_t t, double volume)
     : from(f), to(t), transportVolume(volume), isActive(true) {}
 
+// World methods
 int World::getCountryIndex(const std::string& name) const {
-    for (std::size_t i = 0; i < countries.size(); ++i) {
-        if (countries[i].name == name) {
-            return static_cast<int>(i);
-        }
+    for (size_t i = 0; i < countries.size(); ++i) {
+        if (countries[i].name == name) return static_cast<int>(i);
     }
     return -1;
 }
@@ -72,18 +78,12 @@ void World::closeBorder(size_t i, size_t j) {
             conn.isActive = false;
         }
     }
-    if (i < countries.size()) {
-        countries[i].bordersClosed = true;
-    }
-    if (j < countries.size()) {
-        countries[j].bordersClosed = true;
-    }
+    if (i < countries.size()) countries[i].bordersClosed = true;
+    if (j < countries.size()) countries[j].bordersClosed = true;
 }
 
 void World::closeAllBorders(size_t countryIdx) {
-    if (countryIdx >= countries.size()) {
-        return;
-    }
+    if (countryIdx >= countries.size()) return;
     countries[countryIdx].bordersClosed = true;
     countries[countryIdx].borderOpenness = 0.0;
 
@@ -97,14 +97,14 @@ void World::closeAllBorders(size_t countryIdx) {
 void World::checkBorderClosures() {
     double threshold = humanity.getBorderCloseThreshold();
 
-    for (std::size_t i = 0; i < countries.size(); ++i) {
+    for (size_t i = 0; i < countries.size(); ++i) {
         Country& country = countries[i];
 
         double infectionRate = country.pop.infected / country.pop.initial;
         double globalAwareness = humanity.awareness;
 
         double closeProbability = (infectionRate + globalAwareness) *
-                                  country.params.getBorderCloseSpeed();
+                                 country.params.getBorderCloseSpeed();
 
         if (closeProbability > threshold && !country.bordersClosed) {
             closeAllBorders(i);
@@ -112,4 +112,4 @@ void World::checkBorderClosures() {
     }
 }
 
-}  // namespace plague
+} // namespace plague
