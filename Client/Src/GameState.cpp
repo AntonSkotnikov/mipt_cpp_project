@@ -18,6 +18,8 @@ void GameState::resetForMenu() {
     snapshot_.playerInfo.points = 0;
     snapshot_.rooms.clear();
     snapshot_.countries.clear();
+    snapshot_.highlightedCountries.clear();
+    snapshot_.news.clear();
     snapshot_.availableUpgrades.clear();
     snapshot_.purchasedUpgrades.clear();
     snapshot_.cureProgress = 0.0;
@@ -49,6 +51,16 @@ void GameState::setPlayerPoints(UpgradePointType points) {
 void GameState::setCountries(const std::vector<Country>& countries) {
     std::lock_guard<std::mutex> lock(mutex_);
     snapshot_.countries = countries;
+}
+
+void GameState::setHighlightedCountries(const std::vector<bool>& highlightedCountries) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    snapshot_.highlightedCountries = highlightedCountries;
+}
+
+void GameState::setNews(const std::vector<std::string>& news) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    snapshot_.news = news;
 }
 
 void GameState::setRooms(const std::vector<RoomSummary>& rooms) {

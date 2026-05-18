@@ -22,6 +22,8 @@ public:
     void setPlayerInfo(const InfoAboutPlayer& playerInfo);
     void setPlayerPoints(UpgradePointType points);
     void setCountries(const std::vector<Country>& countries);
+    void setHighlightedCountries(const std::vector<bool>& highlightedCountries);
+    void setNews(const std::vector<std::string>& news);
     void setRooms(const std::vector<RoomSummary>& rooms);
     void setAvailableUpgrades(const std::vector<UpgradeDefinition>& upgrades);
     void setPurchasedUpgrades(const std::vector<UpgradeId>& upgrades);

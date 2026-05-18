@@ -1,10 +1,13 @@
 #pragma once
 
 #include "Client_ServerAPI.hpp"
+#include "EventGenerator.hpp"
 #include "GameTypes.hpp"
 #include "MatModel.hpp"
 
 #include <atomic>
+#include <cstddef>
+#include <cstdint>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -57,7 +60,8 @@ private:
                                           const std::string& upgradeId,
                                           const char* reason) const;
     std::string gameStatsPayload(int tick) const;
-    std::string gameStatsPayloadLocked(const char* event) const;
+    std::string gameStatsPayloadLocked(const char* event, const ClientSession* session = nullptr) const;
+    void appendNewsAndEventsLocked(std::ostringstream& payload) const;
     void notifySession(ClientSession& session, const std::string& payload);
     void notifyOpponent(ClientSession& session, const std::string& payload);
     void notifyBoth(const std::string& payload);
@@ -74,8 +78,14 @@ private:
     std::string roomName_;
     std::string roomPassword_;
     World world_;
+    EventGenerator eventGenerator_;
+    std::vector<bool> highlightedCountries_;
     bool worldInitialized_ = false;
     bool initialInfectionSelected_ = false;
+    bool activeDnaClickAvailable_ = false;
+    std::size_t activeDnaCountry_ = 0;
+    int activeDnaAmount_ = 0;
+    std::uint64_t activeDnaEventId_ = 0;
     int gameDay_ = 1;
 };
 

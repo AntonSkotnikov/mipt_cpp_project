@@ -104,6 +104,17 @@ void appendStringArray(std::ostringstream& payload, const std::vector<std::strin
     payload << ']';
 }
 
+void appendBoolArray(std::ostringstream& payload, const std::vector<bool>& values) {
+    payload << '[';
+    for (std::size_t i = 0; i < values.size(); ++i) {
+        if (i > 0) {
+            payload << ',';
+        }
+        payload << (values[i] ? "true" : "false");
+    }
+    payload << ']';
+}
+
 void appendUpgrade(std::ostringstream& payload, const UpgradeDefinition& upgrade) {
     payload << R"({"id":")" << jsonEscape(upgrade.id) << '"'
             << R"(,"category":")" << upgradeCategoryToJson(upgrade.category) << '"'
@@ -113,6 +124,18 @@ void appendUpgrade(std::ostringstream& payload, const UpgradeDefinition& upgrade
             << R"(,"dependencies":)";
     appendStringArray(payload, upgrade.dependencies);
     payload << '}';
+}
+
+std::string newsText(const GameNews& news) {
+    std::ostringstream text;
+    if (news.day > 0) {
+        text << "Day " << news.day << ": ";
+    }
+    text << news.title;
+    if (!news.message.empty()) {
+        text << " - " << news.message;
+    }
+    return text.str();
 }
 
 const UpgradeDefinition* findUpgrade(PlayerRole role, const UpgradeId& upgradeId) {
@@ -545,6 +568,7 @@ LobbyActionResult LobbyManager::selectCountry(ClientSession& session, const std:
             world_ = initializeWorld();
             worldInitialized_ = true;
             gameDay_ = 1;
+            highlightedCountries_.assign(world_.countries.size(), false);
         }
 
         const int countryIndex = world_.getCountryIndex(countryName);
@@ -557,6 +581,16 @@ LobbyActionResult LobbyManager::selectCountry(ClientSession& session, const std:
         }
 
         bool infectedSelectedCountry = false;
+        bool dnaCollected = false;
+        if (!initialInfectionSelected_ && session.role != PlayerRole::Pathogen) {
+            LOG_WARNING("Country infection rejected: role=%s fd=%d country=%s",
+                        roleToJson(session.role),
+                        session.socket_fd,
+                        countryName.c_str());
+            result.payload = R"({"screen":"Game","event":"CountrySelectionRejected","reason":"only_pathogen_can_infect"})";
+            return result;
+        }
+
         if (!initialInfectionSelected_) {
             Country& country = world_.countries[static_cast<std::size_t>(countryIndex)];
             const double infected = std::min(country.pop.susceptible, 1000.0);
@@ -564,6 +598,17 @@ LobbyActionResult LobbyManager::selectCountry(ClientSession& session, const std:
             country.pop.infected += infected;
             initialInfectionSelected_ = true;
             infectedSelectedCountry = infected > 0.0;
+            GameNews news(
+                EventType::NEWS_FIRST_INFECTION,
+                "First Infection!",
+                "The virus has been detected in " + country.name + ". " +
+                    std::to_string(static_cast<int>(infected)) + " people are infected.",
+                country.name,
+                static_cast<std::uint64_t>(countryIndex),
+                world_.nextEventId++,
+                gameDay_
+            );
+            world_.addNews(news);
             LOG_INFO("Initial infection selected: country=%s role=%s infected=%.0f fd=%d",
                      countryName.c_str(),
                      roleToJson(session.role),
@@ -574,14 +619,52 @@ LobbyActionResult LobbyManager::selectCountry(ClientSession& session, const std:
                      countryName.c_str(),
                      roleToJson(session.role),
                      session.socket_fd);
+
+            if (activeDnaClickAvailable_ &&
+                activeDnaCountry_ == static_cast<std::size_t>(countryIndex) &&
+                activeDnaCountry_ < highlightedCountries_.size() &&
+                highlightedCountries_[activeDnaCountry_]) {
+                const int dnaReward = activeDnaAmount_ > 0
+                    ? activeDnaAmount_
+                    : eventGenerator_.handleCountryClick(activeDnaCountry_, 0);
+                session.points += dnaReward;
+                highlightedCountries_[activeDnaCountry_] = false;
+                activeDnaClickAvailable_ = false;
+                activeDnaCountry_ = 0;
+                activeDnaAmount_ = 0;
+
+                Country& country = world_.countries[static_cast<std::size_t>(countryIndex)];
+                GameNews news(
+                    EventType::ACTION_DNA_CLICK,
+                    "DNA Collected!",
+                    std::string(roleToJson(session.role)) + " collected " +
+                        std::to_string(dnaReward) + " DNA in " + country.name + ".",
+                    country.name,
+                    static_cast<std::uint64_t>(countryIndex),
+                    activeDnaEventId_,
+                    gameDay_
+                );
+                world_.addNews(news);
+                activeDnaEventId_ = 0;
+
+                dnaCollected = true;
+                LOG_INFO("DNA click collected: country=%s role=%s reward=%d points=%d fd=%d",
+                         countryName.c_str(),
+                         roleToJson(session.role),
+                         dnaReward,
+                         session.points,
+                         session.socket_fd);
+            }
         }
 
         result.payload = gameStatsPayloadLocked(
-            infectedSelectedCountry ? "CountryInfected" : "CountrySelected");
+            dnaCollected ? "DNAGranted" : (infectedSelectedCountry ? "CountryInfected" : "CountrySelected"),
+            &session);
 
         opponent = opponentOf(session);
         if (opponent != nullptr) {
-            opponentPayload = result.payload;
+            opponentPayload = gameStatsPayloadLocked(
+                dnaCollected ? "DNAGranted" : (infectedSelectedCountry ? "CountryInfected" : "CountrySelected"));
         }
     }
 
@@ -699,6 +782,11 @@ void LobbyManager::removePlayer(ClientSession& session) {
             roomPassword_.clear();
             worldInitialized_ = false;
             initialInfectionSelected_ = false;
+            highlightedCountries_.clear();
+            activeDnaClickAvailable_ = false;
+            activeDnaCountry_ = 0;
+            activeDnaAmount_ = 0;
+            activeDnaEventId_ = 0;
             gameDay_ = 1;
         }
 
@@ -778,7 +866,9 @@ std::string LobbyManager::roomListPayloadLocked(const char* event) const {
                 << R"(,"capacity":2})";
     }
 
-    payload << R"(]})";
+    payload << ']';
+    appendNewsAndEventsLocked(payload);
+    payload << '}';
     return payload.str();
 }
 
@@ -861,7 +951,9 @@ std::string LobbyManager::startPayloadFor(const ClientSession& session) const {
         }
     }
 
-    payload << R"(]})";
+    payload << ']';
+    appendNewsAndEventsLocked(payload);
+    payload << '}';
     return payload.str();
 }
 
@@ -891,11 +983,16 @@ std::string LobbyManager::gameStatsPayload(int tick) const {
     return gameStatsPayloadLocked("Tick");
 }
 
-std::string LobbyManager::gameStatsPayloadLocked(const char* event) const {
+std::string LobbyManager::gameStatsPayloadLocked(const char* event, const ClientSession* session) const {
     std::ostringstream payload;
     payload << R"({"screen":"Game")"
-            << R"(,"event":")" << event << '"'
-            << R"(,"day":)" << gameDay_
+            << R"(,"event":")" << event << '"';
+
+    if (session != nullptr) {
+        payload << R"(,"points":)" << session->points;
+    }
+
+    payload << R"(,"day":)" << gameDay_
             << R"(,"cureProgress":)" << (worldInitialized_ ? world_.vaccine.progress : 0.0)
             << R"(,"countries":[)";
 
@@ -916,8 +1013,26 @@ std::string LobbyManager::gameStatsPayloadLocked(const char* event) const {
         }
     }
 
-    payload << R"(]})";
+    payload << ']';
+    appendNewsAndEventsLocked(payload);
+    payload << '}';
     return payload.str();
+}
+
+void LobbyManager::appendNewsAndEventsLocked(std::ostringstream& payload) const {
+    std::vector<std::string> news;
+    news.reserve(worldInitialized_ ? world_.newsQueue.size() : 0);
+
+    if (worldInitialized_) {
+        for (const GameNews& item : world_.newsQueue) {
+            news.push_back(newsText(item));
+        }
+    }
+
+    payload << R"(,"news":)";
+    appendStringArray(payload, news);
+    payload << R"(,"highlightedCountries":)";
+    appendBoolArray(payload, highlightedCountries_);
 }
 
 void LobbyManager::notifySession(ClientSession& session, const std::string& payload) {
@@ -971,6 +1086,11 @@ void LobbyManager::startGameLocked(ClientSession& triggeringSession) {
     world_ = initializeWorld();
     worldInitialized_ = true;
     initialInfectionSelected_ = false;
+    highlightedCountries_.assign(world_.countries.size(), false);
+    activeDnaClickAvailable_ = false;
+    activeDnaCountry_ = 0;
+    activeDnaAmount_ = 0;
+    activeDnaEventId_ = 0;
     gameDay_ = 1;
 
     ClientSession* opponent = opponentOf(triggeringSession);
@@ -1000,6 +1120,26 @@ void LobbyManager::gameLoop() {
             if (stillInGame) {
                 if (worldInitialized_ && initialInfectionSelected_) {
                     simulateDay(world_);
+                    const int pathogenPoints = players_[0]->role == PlayerRole::Pathogen
+                        ? players_[0]->points
+                        : players_[1]->points;
+                    const int humanityPoints = players_[0]->role == PlayerRole::Humanity
+                        ? players_[0]->points
+                        : players_[1]->points;
+                    EventResult event = eventGenerator_.generateEvent(
+                        world_,
+                        gameDay_,
+                        pathogenPoints,
+                        humanityPoints);
+                    if (event.type == EventType::ACTION_DNA_CLICK &&
+                        event.highlightedCountry < highlightedCountries_.size()) {
+                        std::fill(highlightedCountries_.begin(), highlightedCountries_.end(), false);
+                        highlightedCountries_[event.highlightedCountry] = true;
+                        activeDnaClickAvailable_ = true;
+                        activeDnaCountry_ = event.highlightedCountry;
+                        activeDnaAmount_ = event.dnaAmount;
+                        activeDnaEventId_ = event.eventId;
+                    }
                 }
                 if (worldInitialized_) {
                     ++gameDay_;
