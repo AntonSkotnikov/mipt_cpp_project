@@ -131,6 +131,7 @@ class DetalizedImage final : public Widget {
     std::vector<SymbolOnScreen> symbols;
     std::vector<bool> borderSymbols_;
     bool eventHighlighted_ = false;
+    int colorPair_ = 0;
 
     void updateBorderSymbols();
 public:
@@ -141,6 +142,7 @@ public:
     void addSymbol(SymbolOnScreen newSymbol);
     void addSymbols(std::vector<SymbolOnScreen> newSymbols);
     void setEventHighlight(bool value);
+    void setColorPair(int newColorPair);
 };
 
 //Decorators

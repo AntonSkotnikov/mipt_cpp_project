@@ -164,7 +164,7 @@ private:
     void toggleNavigationMode();
     void showWorldOverview();
     void updateNewsTicker();
-    void updateCountryHighlights();
+    void updateCountryStyles();
     void updatePopulationInfo();
     void updateSelectedCountryInfo();
 };

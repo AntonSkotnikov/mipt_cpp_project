@@ -176,6 +176,20 @@ UIManager::UIManager() {
         init_pair(2, COLOR_BLUE, -1);
         init_pair(3, COLOR_GREEN, -1);
         init_pair(4, COLOR_RED, -1);
+        init_pair(5, COLOR_RED, -1);
+        init_pair(6, COLOR_RED, -1);
+        init_pair(7, COLOR_BLACK, -1);
+
+        if (can_change_color() && COLORS > 11) {
+            init_color(8, 650, 220, 220);
+            init_color(9, 520, 0, 0);
+            init_color(10, 850, 0, 0);
+            init_color(11, 80, 0, 0);
+            init_pair(4, 8, -1);
+            init_pair(5, 9, -1);
+            init_pair(6, 10, -1);
+            init_pair(7, 11, -1);
+        }
     }
 
     int widthOfTerm, heightOfTerm;

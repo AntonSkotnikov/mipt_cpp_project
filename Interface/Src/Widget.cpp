@@ -23,7 +23,7 @@ namespace {
 
 constexpr short selectedCountryColorPair = 1;
 constexpr short highlightedCountryColorPair = 2;
-constexpr short eventCountryColorPair = 4;
+constexpr short eventCountryColorPair = 1;
 bool isBackspaceKey(int key) {
     return key == KEY_BACKSPACE || key == 127 || key == '\b';
 }
@@ -76,6 +76,11 @@ std::vector<std::string> wrapLine(std::string_view line, int width) {
     }
 
     const std::size_t lineWidth = static_cast<std::size_t>(width);
+    if (line.size() <= lineWidth) {
+        wrapped.emplace_back(line);
+        return wrapped;
+    }
+
     std::size_t pos = 0;
 
     while (pos < line.size()) {
@@ -481,7 +486,8 @@ void DetalizedImage::draw() {
             continue;
         }
 
-        const bool drawEventHighlight = canColor && eventHighlighted_;
+        const bool drawEventHighlight =
+            canColor && eventHighlighted_ && i < borderSymbols_.size() && borderSymbols_[i];
         const bool drawFocusedBorder =
             canColor && focused_ && !drawEventHighlight && i < borderSymbols_.size() && borderSymbols_[i];
 
@@ -489,6 +495,8 @@ void DetalizedImage::draw() {
             win_.attrOn(COLOR_PAIR(eventCountryColorPair) | A_BOLD);
         } else if (drawFocusedBorder) {
             win_.attrOn(COLOR_PAIR(highlightedCountryColorPair) | A_BOLD);
+        } else if (canColor && colorPair_ != 0) {
+            win_.attrOn(COLOR_PAIR(colorPair_));
         }
 
         win_.print(rect_.y + symbol.y, rect_.x + symbol.x, symbol.symbol);
@@ -497,6 +505,8 @@ void DetalizedImage::draw() {
             win_.attrOff(COLOR_PAIR(eventCountryColorPair) | A_BOLD);
         } else if (drawFocusedBorder) {
             win_.attrOff(COLOR_PAIR(highlightedCountryColorPair) | A_BOLD);
+        } else if (canColor && colorPair_ != 0) {
+            win_.attrOff(COLOR_PAIR(colorPair_));
         }
     }
 }
@@ -522,6 +532,10 @@ void DetalizedImage::addSymbols(std::vector<SymbolOnScreen> newSymbols) {
 
 void DetalizedImage::setEventHighlight(bool value) {
     eventHighlighted_ = value;
+}
+
+void DetalizedImage::setColorPair(int newColorPair) {
+    colorPair_ = newColorPair;
 }
 
 void DetalizedImage::updateBorderSymbols() {
