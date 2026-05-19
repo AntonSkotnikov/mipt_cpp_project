@@ -105,6 +105,11 @@ void selectScreenForSituation(Config & cfg, ScreenManager & manager, const GameS
             manager.curScreen = &manager.connect_;
             break;
 
+        case plague::GameSituation::ConnectingToServerFailed:
+            cfg.id = ScreenIds::ConnectionFailed;
+            manager.curScreen = &manager.connectionFailed_;
+            break;
+
         case plague::GameSituation::RoomBrowser:
             cfg.id = ScreenIds::Rooms;
             manager.rooms_.updateSnapshot(snap);
@@ -129,6 +134,12 @@ void selectScreenForSituation(Config & cfg, ScreenManager & manager, const GameS
             manager.cure_.updateSnapshot(snap);
             manager.country_.updateSnapshot(snap);
             manager.news_.updateSnapshot(snap);
+            break;
+
+        case plague::GameSituation::EndScreen:
+            cfg.id = ScreenIds::End;
+            manager.end_.updateSnapshot(snap);
+            manager.curScreen = &manager.end_;
             break;
 
         default:

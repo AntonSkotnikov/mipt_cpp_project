@@ -55,6 +55,16 @@ private:
     void layout();
 };
 
+class ConnectionFailedScreen final : public Screen {
+public:
+    ConnectionFailedScreen(Config & cfg, Window & win);
+
+    request::UIRequest handleInput(int key) override;
+    void resize() override;
+private:
+    void layout();
+};
+
 class ConnectToServerScreen final : public Screen {
 public:
     ConnectToServerScreen(Config & cfg, Window & win);
@@ -157,6 +167,21 @@ private:
     void updateCountryHighlights();
     void updatePopulationInfo();
     void updateSelectedCountryInfo();
+};
+
+class EndScreen final : public Screen {
+public:
+    EndScreen(Config & cfg, Window & win);
+
+    request::UIRequest handleInput(int key) override;
+    void resize() override;
+    void updateSnapshot(const GameSnapshot & snapshot);
+private:
+    Info * resultInfo_ = nullptr;
+    GameSnapshot snapshot_{};
+
+    void layout();
+    void updateText();
 };
 
 class InfoNavigationScreen : public Screen {

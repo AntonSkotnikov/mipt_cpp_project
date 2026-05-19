@@ -1,6 +1,7 @@
 #pragma once
 
 #include <map>
+#include <string>
 
 namespace plague::ui {
 
@@ -33,13 +34,17 @@ enum class ScreenIds {
     Abilities,
     World,
     Cure,
-    News
+    News,
+    End,
+    ConnectionFailed
 };
 
 struct Config {
     Resolutions resolution = Resolutions::Medium;
     ScreenIds id = ScreenIds::MainMenu;
     bool terminalTooSmall = false;
+    std::string lastConnectAddr{};
+    std::string lastConnectPort{};
 };
 
 }
