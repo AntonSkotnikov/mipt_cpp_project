@@ -288,13 +288,10 @@ void updateEpidemicModel(World& world) {
         if (becomingInfectious > E) becomingInfectious = E;
 
         // Выздоровления и смерти (I -> R/D)
-        double medicineFactor = 1.0 + country.params.medicine * 0.3;
-        double effectiveLethality = virus.lethality / medicineFactor;
-        // Базовый процент выздоровления очень мал без вакцины и без высокой осведомленности
-        // Осведомленность позволяет людям лучше защищаться и лечиться
-        double baseRecoveryRate = 0.02; // 2% в день - базовое естественное выздоровление
-        double awarenessBonus = world.humanity.awareness * 0.05; // До +5% при полной осведомленности
-        double naturalRecoveryRate = baseRecoveryRate + awarenessBonus;
+        // Осведомленность НЕ влияет на выздоровление, только на скорость разработки вакцины и закрытие границ
+
+        // Базовое естественное выздоровление отключено - люди не могут вылечиться без вакцины
+        double naturalRecoveryRate = 0.0;
 
         // Если вакцина готова, добавляем её эффект выздоровления через лечение
         double vaccineRecoveryBonus = vaccine.isReady ? 0.1 : 0.0;
@@ -302,8 +299,9 @@ void updateEpidemicModel(World& world) {
         // Итоговый процент выздоровления
         double recoveryRate = naturalRecoveryRate + vaccineRecoveryBonus;
 
-        // Смертность от вируса
-        double deathRate = gamma * effectiveLethality;
+        // Смертность от вируса - зависит напрямую от летальности вируса
+        // gamma определяет скорость перехода из I в R/D, lethality определяет долю смертей
+        double deathRate = gamma * virus.lethality;
 
         // Новые смерти и выздоровления
         double newDeaths = deathRate * I;
@@ -317,7 +315,6 @@ void updateEpidemicModel(World& world) {
             newRecovered *= scale;
         }
 
-        // --- Вакцинация (если готова) ---
         double newVaccinated = 0.0;
         if (vaccine.isReady) {
             double vaccRate = country.params.getVaccineSpeed() * vaccine.spreadRate;
