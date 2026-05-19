@@ -17,11 +17,13 @@ using ResponseCallback = std::function<void(const ServerResponse&)>;
 using TimeoutCallback = std::function<void(RequestId)>;
 using UnhandledResponseCallback = std::function<void(const ServerResponse&)>;
 
+// Таймауты и повторы для одного клиентского запроса.
 struct RequestConfig {
     std::chrono::milliseconds timeout{5000};
     int max_retries{2};
 };
 
+// Связывает request-response протокол с транспортом: выдаёт id, ретраит запросы и отдаёт ответы в нужные callbacks.
 class RequestHandler {
 public:
     RequestHandler(SocketTransport& transport);
@@ -37,6 +39,7 @@ public:
     void setUnhandledResponseCallback(UnhandledResponseCallback callback);
 
 private:
+    // Запрос хранится до ответа сервера или окончательного таймаута.
     struct PendingRequest {
         RequestId id;
         ClientCommand command;

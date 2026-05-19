@@ -35,6 +35,7 @@ std::optional<std::string> payloadField(const std::string& payload, const std::s
     const std::string lowerKey = toLower(key);
 
     std::size_t fieldBegin = 0;
+    // Команды лобби используют компактный формат key=value;key=value вместо JSON.
     while (fieldBegin <= payload.size()) {
         std::size_t fieldEnd = payload.find(';', fieldBegin);
         if (fieldEnd == std::string::npos) {
@@ -131,6 +132,7 @@ void PlagueServer::run() {
 
     LOG_INFO("Server listening on %s:%d", ip_.c_str(), port_);
     while (true) {
+        // У каждого сокета свой ClientSession внутри потока-обработчика.
         const int client_socket = accept(server_socket_, nullptr, nullptr);
         if (client_socket < 0) {
             if (errno == EINTR) {
@@ -166,6 +168,7 @@ void PlagueServer::handleClient(int client_socket) {
 
         session.readBuffer.append(buffer, static_cast<std::size_t>(bytes_read));
 
+        // Запросы разделены переводом строки; неполные строки остаются в буфере сессии.
         std::size_t newline_pos = std::string::npos;
         while ((newline_pos = session.readBuffer.find('\n')) != std::string::npos) {
             std::string line = session.readBuffer.substr(0, newline_pos);
@@ -204,6 +207,7 @@ bool PlagueServer::processInput(ClientSession& session, const std::string& line)
     ServerResponse response;
     response.request_id = request->request_id;
     response.success = true;
+    // Пуш-уведомления переиспользуют последний id запроса, пока в протоколе нет отдельного кадра.
     session.lastRequestId = request->request_id;
 
     const std::string action = payloadAction(request->payload);
@@ -272,8 +276,8 @@ bool PlagueServer::processInput(ClientSession& session, const std::string& line)
 
     case ClientCommand::ChooseHumanity:
     case ClientCommand::ChoosePathogen:
-        // Legacy clients used role commands for choosing-side actions before
-        // Common exposed dedicated lobby commands.
+        // Старые клиенты слали действия лобби через команды выбора роли,
+        // пока в Common не появились отдельные команды лобби.
         if (action == "ready" || request->payload.empty()) {
             response = makeResponse(*request, lobby_->toggleReady(session));
         } else if (action == "selectsubtype") {
@@ -288,7 +292,7 @@ bool PlagueServer::processInput(ClientSession& session, const std::string& line)
         break;
 
     case ClientCommand::Ping:
-        // Legacy clients tunneled lobby actions through Ping.
+        // Старые клиенты туннелировали действия лобби через Ping.
         if (action == "listrooms") {
             response = makeResponse(*request, lobby_->listRooms(session));
         } else if (action == "createroom") {
@@ -333,6 +337,7 @@ bool PlagueServer::sendResponse(ClientSession& session, const ServerResponse& re
 
     std::lock_guard<std::mutex> lock(session.sendMutex);
 
+    // Несколько потоков могут писать в один сокет; сериализуем запись и досылаем кадр.
     while (sent_total < wire.size()) {
         const ssize_t sent_now = ::send(session.socket_fd,
                                         wire.data() + sent_total,

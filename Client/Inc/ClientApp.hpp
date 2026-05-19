@@ -16,6 +16,7 @@ namespace plague {
 using Packet = ServerResponse;
 using UserAction = request::UIRequest;
 
+// Внутренний state machine клиента поверх экранов UI.
 enum class ClientFlowState {
     Disconnected,
     Connecting,
@@ -28,6 +29,7 @@ enum class ClientFlowState {
     GameOver
 };
 
+// Главный цикл клиента: читает UI, шлёт команды серверу и обновляет GameState.
 class ClientApp {
 public:
     explicit ClientApp(SocketTransport& transport);

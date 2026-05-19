@@ -8,6 +8,7 @@
 
 namespace plague {
 
+// Потокобезопасное хранилище текущего снимка игры для UI и сетевого слоя
 class GameState {
 public:
     GameState() = default;

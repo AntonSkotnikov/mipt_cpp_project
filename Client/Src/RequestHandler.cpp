@@ -20,6 +20,7 @@ RequestId RequestHandler::sendRequest(ClientCommand command,
                                       RequestConfig config) {
     std::lock_guard<std::mutex> lock(mutex_);
 
+    // Сохраняем запрос до ответа сервера, чтобы связать пакет с callback по request_id.
     const RequestId req_id = generateRequestId();
     const auto deadline = std::chrono::steady_clock::now() + config.timeout;
 
@@ -54,6 +55,7 @@ void RequestHandler::handleIncoming(const ServerResponse& response) {
         std::lock_guard<std::mutex> lock(mutex_);
         const auto it = pending_requests_.find(response.request_id);
         if (it == pending_requests_.end()) {
+            // Пуши от сервера приходят с последним id клиента и не всегда имеют pending-запрос.
             LOG_DEBUG("Received unhandled response: id=%u success=%d",
                       response.request_id,
                       response.success ? 1 : 0);
@@ -67,6 +69,7 @@ void RequestHandler::handleIncoming(const ServerResponse& response) {
         }
     }
 
+    // Callback может дернуть RequestHandler повторно, поэтому вызываем его уже без mutex.
     if (callback) {
         callback(response);
     } else if (unhandled_callback) {
@@ -100,6 +103,7 @@ void RequestHandler::update() {
         }
     }
 
+    // Ретраи ставятся отдельным проходом, чтобы не держать mutex во время пользовательских callbacks.
     for (const PendingRequest& request : expired_requests) {
         processTimeout(request);
     }
@@ -148,6 +152,7 @@ void RequestHandler::processTimeout(const PendingRequest& req) {
         retried_request.retries_left -= 1;
         retried_request.deadline = std::chrono::steady_clock::now() + retried_request.config.timeout;
 
+        // Повтор использует тот же request_id, чтобы поздний ответ всё ещё попал в исходный callback.
         std::lock_guard<std::mutex> lock(mutex_);
         pending_requests_[retried_request.id] = retried_request;
         enqueueOutgoing(retried_request.id, retried_request.command, retried_request.payload);

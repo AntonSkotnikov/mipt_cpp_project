@@ -37,8 +37,7 @@ enum class GameSituation {
     Exit,
     Exiting = Exit,
 
-    СonnectingToServer,
-    ConnectingToServer = СonnectingToServer,
+    ConnectingToServer,
     ConnectingToServerFailed,
 
     RoomBrowser,

@@ -3,11 +3,11 @@ DEBUGGAME = 0
 ifeq ($(DEBUGGAME), 1)
 	DEFINES = -D DEBUGGAME
 else
-	DEFINES = 
+	DEFINES =
 endif
 
 CXX = g++
-CXXFLAGS = -std=c++20 -Wall -Wextra -Wpedantic -g
+CXXFLAGS = -std=c++20 -pthread -Wall -Wextra -Wpedantic -g
 CPPFLAGS = -ICommon/Inc -IClient/Inc -IInterface/Inc -IServer/Inc
 PKG_CONFIG ?= pkg-config
 

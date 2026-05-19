@@ -47,6 +47,7 @@ bool SocketTransport::connectToServer(const char* host, int port) {
     const auto connect_deadline =
         std::chrono::steady_clock::now() + std::chrono::milliseconds(kConnectTimeoutMs);
 
+    // getaddrinfo может вернуть несколько адресов; пробуем их в пределах общего таймаута.
     for (struct addrinfo* current = results; current != nullptr; current = current->ai_next) {
         const auto now = std::chrono::steady_clock::now();
         if (now >= connect_deadline) {
@@ -138,6 +139,7 @@ bool SocketTransport::pollResponse(ServerResponse& response) {
         return false;
     }
 
+    // Накопленный буфер режется на строки протокола только после неблокирующего чтения.
     readAvailableData();
     parseBufferedResponses();
 
@@ -153,6 +155,7 @@ bool SocketTransport::pollResponse(ServerResponse& response) {
 bool SocketTransport::sendAll(const std::string& wire_data) {
     std::size_t sent_total = 0;
 
+    // TCP может принять только часть строки, поэтому досылаем пакет целиком.
     while (sent_total < wire_data.size()) {
         const ssize_t sent_now = ::send(socket_fd_,
                                         wire_data.data() + sent_total,
@@ -214,6 +217,7 @@ void SocketTransport::readAvailableData() {
 void SocketTransport::parseBufferedResponses() {
     std::size_t newline_pos = std::string::npos;
 
+    // Один recv может принести несколько ответов или половину следующего.
     while ((newline_pos = read_buffer_.find('\n')) != std::string::npos) {
         std::string line = read_buffer_.substr(0, newline_pos);
         read_buffer_.erase(0, newline_pos + 1);

@@ -210,7 +210,7 @@ UIManager::~UIManager() {
     endwin();
 }
 
-request::UIRequest UIManager::loop(GameSnapshot snap) {
+request::UIRequest UIManager:: loop(GameSnapshot snap) {
     snap_ = snap;
 
     selectScreenForSituation(cfg_, *man_, snap_);
@@ -220,7 +220,7 @@ request::UIRequest UIManager::loop(GameSnapshot snap) {
 #endif
 
     enforceSmallTerminalScreen(cfg_, *man_);
-    
+
     int key = man_->curScreen->getKey();
 
     if (key == KEY_RESIZE) {

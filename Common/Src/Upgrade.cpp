@@ -9,6 +9,7 @@ bool dependenciesSatisfied(const UpgradeDefinition & upgrade,
         upgrade.dependencies.begin(),
         upgrade.dependencies.end(),
         [&purchasedUpgrades](const UpgradeId & dependency) {
+        // Лямбда-функция ищет каждое требование в списке уже купленных игроком улучшений
             return std::find(purchasedUpgrades.begin(), purchasedUpgrades.end(), dependency) != purchasedUpgrades.end();
         }
     );

@@ -192,8 +192,8 @@ void sendSessionPacket(ClientSession& session, const std::string& payload) {
         return;
     }
 
-    // Server pushes reuse the last request id known for that client.
-    // The current request-response transport does not have a separate push frame yet.
+    // Серверные пуш-пакеты используют последний id запроса клиента.
+    // В текущем транспорте запрос-ответ ещё нет отдельного пуш-кадра.
     ServerResponse response;
     response.request_id = session.lastRequestId;
     response.success = true;
@@ -375,6 +375,7 @@ LobbyActionResult LobbyManager::addPlayerToRoom(ClientSession& session, const st
         session.purchasedUpgrades.clear();
         session.roomName = room.name;
 
+        // Первому игроку выдаём случайную сторону, второго ставим на противоположную.
         if (room.players[0] == nullptr) {
             static std::mt19937 rng{std::random_device{}()};
             session.role = std::uniform_int_distribution<int>(0, 1)(rng) == 0
@@ -409,6 +410,7 @@ LobbyActionResult LobbyManager::addPlayerToRoom(ClientSession& session, const st
         roomBrowsersPayload = roomListPayloadLocked("RoomList");
     }
 
+    // Уведомления отправляем после освобождения мьютекса, чтобы не блокировать другие действия лобби.
     if (opponent != nullptr) {
         notifySession(*opponent, opponentPayload);
     }
@@ -429,8 +431,8 @@ LobbyActionResult LobbyManager::updateSubtype(ClientSession& session, PlayerSubt
     {
         std::lock_guard<std::mutex> lock(mutex_);
 
-        // Subtype selection is stored on the server before Ready is accepted, so a client
-        // cannot start the game by sending Ready without first confirming its subtype.
+        // Подтип фиксируется на сервере до Ready, чтобы клиент не стартовал игру
+        // без явного подтверждения выбора.
         Room* room = roomForSessionLocked(session);
         if (room == nullptr) {
             LOG_WARNING("Subtype update rejected: player is not in lobby fd=%d", session.socket_fd);
@@ -471,8 +473,8 @@ LobbyActionResult LobbyManager::toggleReady(ClientSession& session) {
     {
         std::lock_guard<std::mutex> lock(mutex_);
 
-        // Ready is a synchronized lobby action: both players must be present, both must
-        // have selected a subtype, and only then the manager sends the GameStart packet.
+        // Ready синхронизируется через лобби: нужны оба игрока и выбранные подтипы,
+        // только после этого менеджер отправляет GameStart.
         Room* room = roomForSessionLocked(session);
         if (room == nullptr) {
             LOG_WARNING("Ready toggle rejected: player is not in lobby fd=%d", session.socket_fd);
@@ -632,6 +634,7 @@ LobbyActionResult LobbyManager::selectCountry(ClientSession& session, const std:
             return result;
         }
 
+        // Первый клик патогена запускает симуляцию; следующие клики уже игровые действия.
         if (!room->initialInfectionSelected) {
             Country& country = room->world.countries[static_cast<std::size_t>(countryIndex)];
             const double infected = std::min(country.pop.susceptible, 1000.0);
@@ -661,6 +664,7 @@ LobbyActionResult LobbyManager::selectCountry(ClientSession& session, const std:
                      roleToJson(session.role),
                      session.socket_fd);
 
+            // Подсвеченная DNA-награда достаётся первому кликнувшему клиенту.
             if (room->activeDnaClickAvailable &&
                 room->activeDnaCountry == static_cast<std::size_t>(countryIndex) &&
                 room->activeDnaCountry < room->highlightedCountries.size() &&
@@ -768,20 +772,20 @@ LobbyActionResult LobbyManager::purchaseUpgrade(ClientSession& session, const st
 
         session.points -= upgrade->cost;
         session.purchasedUpgrades.push_back(upgradeId);
-                // Apply upgrade effects to the world
+        // Применяем эффекты апгрейда к общей модели мира.
         if (room != nullptr && room->worldInitialized) {
             if (session.role == PlayerRole::Pathogen) {
-                // Pathogen upgrades affect virus parameters
+                // Апгрейды патогена меняют параметры вируса.
                 room->world.virus.infectivity += upgrade->infectivityBoost;
                 room->world.virus.lethality += upgrade->lethalityBoost;
                 room->world.virus.vaccineDifficulty += upgrade->vaccineDifficultyBoost;
             } else {
-                // Humanity upgrades affect humanity and vaccine parameters
+                // Апгрейды человечества меняют осведомлённость и вакцину.
                 room->world.humanity.awareness += upgrade->awarenessBoost;
                 room->world.vaccine.spreadRate += upgrade->vaccineSpreadRateBoost;
                 room->world.vaccine.efficacy += upgrade->vaccineEfficacyBoost;
 
-                // Clamp efficacy to reasonable bounds [0.0, 1.0]
+                // Эффективность вакцины держим в физически понятных границах.
                 if (room->world.vaccine.efficacy > 1.0) {
                     room->world.vaccine.efficacy = 1.0;
                 }
@@ -816,8 +820,8 @@ void LobbyManager::removePlayer(ClientSession& session) {
     {
         std::lock_guard<std::mutex> lock(mutex_);
 
-        // A disconnect during lobby returns the remaining player to waiting; a disconnect
-        // during game ends the match for the other client.
+        // Дисконнект в лобби возвращает второго игрока к ожиданию,
+        // дисконнект в игре завершает матч для оставшегося клиента.
         room = roomForSessionLocked(session);
         if (room == nullptr) {
             session.connected = false;
@@ -958,6 +962,7 @@ void LobbyManager::removeBrowserLocked(ClientSession& session) {
 
 std::string LobbyManager::roomListPayloadLocked(const char* event) const {
     std::ostringstream payload;
+    // Клиенты браузера комнат получают только краткое состояние комнат, без данных игры.
     payload << R"({"screen":"RoomBrowser")"
             << R"(,"event":")" << event << '"'
             << R"(,"rooms":[)";
@@ -989,6 +994,7 @@ void LobbyManager::swapRolesLocked(Room& room) {
 
     std::swap(room.players[0]->role, room.players[1]->role);
     LOG_INFO("Swapping lobby roles");
+    // После смены стороны старый подтип уже невалиден для новой роли.
     room.players[0]->chosenSubtype = defaultSubtypeFor(room.players[0]->role);
     room.players[1]->chosenSubtype = defaultSubtypeFor(room.players[1]->role);
 
@@ -1004,6 +1010,7 @@ std::string LobbyManager::lobbyPayloadFor(const Room& room, const ClientSession&
     const ClientSession* opponent = room.players[0] == &session ? room.players[1] : room.players[0];
 
     std::ostringstream payload;
+    // Пакет собирается с точки зрения конкретного клиента: роль и готовность у каждого свои.
     payload << R"({"screen":"ChoosingSide")"
             << R"(,"event":")" << event << '"'
             << R"(,"role":")" << roleToJson(session.role) << '"'
@@ -1020,6 +1027,7 @@ std::string LobbyManager::lobbyPayloadFor(const Room& room, const ClientSession&
 
 std::string LobbyManager::startPayloadFor(const Room& room, const ClientSession& session) const {
     std::ostringstream payload;
+    // Стартовый пакет несёт каталог апгрейдов и текущий снимок мира.
     payload << R"({"screen":"Game")"
             << R"(,"event":"GameStart")"
             << R"(,"role":")" << roleToJson(session.role) << '"'
@@ -1098,6 +1106,7 @@ std::string LobbyManager::gameStatsPayload(int tick) const {
 
 std::string LobbyManager::gameStatsPayloadLocked(const Room& room, const char* event, const ClientSession* session) const {
     std::ostringstream payload;
+    // Пакет тика не дублирует каталог апгрейдов, только динамику матча.
     payload << R"({"screen":"Game")"
             << R"(,"event":")" << event << '"';
 
@@ -1136,6 +1145,7 @@ void LobbyManager::appendNewsAndEventsLocked(std::ostringstream& payload, const 
     std::vector<std::string> news;
     news.reserve(room != nullptr && room->worldInitialized ? room->world.newsQueue.size() : 0);
 
+    // Новости отдаются как готовые строки: интерфейс не должен знать внутренние EventType.
     if (room != nullptr && room->worldInitialized) {
         for (const GameNews& item : room->world.newsQueue) {
             news.push_back(newsText(item));
@@ -1193,6 +1203,7 @@ void LobbyManager::startGameLocked(Room& room, ClientSession& triggeringSession)
         return;
     }
 
+    // Новый матч получает чистое состояние; комнаты переиспользуются после проверки готовности.
     for (ClientSession* player : room.players) {
         player->lobbyState = LobbyState::InGame;
         player->isReady = true;
@@ -1216,7 +1227,7 @@ void LobbyManager::startGameLocked(Room& room, ClientSession& triggeringSession)
         notifySession(*opponent, startPayloadFor(room, *opponent));
     }
 
-    // The thread is launched after the lobby mutex is released by toggleReady().
+    // Поток запускается из toggleReady() уже после освобождения мьютекса лобби.
 }
 
 void LobbyManager::gameLoop(Room* room) {
@@ -1226,7 +1237,7 @@ void LobbyManager::gameLoop(Room* room) {
 
     LOG_INFO("Game loop started for room=%s", room->name.c_str());
 
-    // The loop advances the shared world model and broadcasts the latest snapshot.
+    // Цикл двигает общую модель мира и рассылает свежий снимок состояния.
     for (int tick = 1; room->gameLoopRunning.load(); ++tick) {
         std::this_thread::sleep_for(std::chrono::seconds(3));
 
@@ -1241,6 +1252,7 @@ void LobbyManager::gameLoop(Room* room) {
             if (stillInGame) {
                 if (room->worldInitialized && room->initialInfectionSelected) {
                     simulateDay(room->world);
+                    // EventGenerator учитывает очки обеих сторон при шансах событий.
                     const int pathogenPoints = room->players[0]->role == PlayerRole::Pathogen
                         ? room->players[0]->points
                         : room->players[1]->points;
@@ -1252,6 +1264,7 @@ void LobbyManager::gameLoop(Room* room) {
                         room->gameDay,
                         pathogenPoints,
                         humanityPoints);
+                    // Одновременно кликабельна только одна страна, поэтому старую подсветку сбрасываем.
                     if (event.type == EventType::ACTION_DNA_CLICK &&
                         event.highlightedCountry < room->highlightedCountries.size()) {
                         std::fill(room->highlightedCountries.begin(), room->highlightedCountries.end(), false);
@@ -1284,6 +1297,7 @@ void LobbyManager::stopGameLoop() {
     std::vector<std::thread> threads;
     {
         std::lock_guard<std::mutex> lock(mutex_);
+        // Сначала забираем объекты потоков под мьютексом, join делаем уже снаружи.
         for (auto& room : rooms_) {
             room->gameLoopRunning.store(false);
             if (room->gameThread.joinable()) {

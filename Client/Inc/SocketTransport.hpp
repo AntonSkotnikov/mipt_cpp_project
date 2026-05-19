@@ -8,6 +8,7 @@
 
 namespace plague {
 
+// Неблокирующий TCP-транспорт для строкового протокола клиент-сервер.
 class SocketTransport final {
 public:
     ~SocketTransport();

@@ -14,6 +14,7 @@ void GameState::setSituation(GameSituation newSituation) {
 
 void GameState::resetForMenu() {
     std::lock_guard<std::mutex> lock(mutex_);
+    // Возврат в меню должен убрать данные прошлой комнаты и партии из UI.
     snapshot_.day = 0;
     snapshot_.playerInfo.points = 0;
     snapshot_.rooms.clear();
@@ -33,6 +34,7 @@ void GameState::setDay(std::uint16_t day) {
 
 void GameState::setRole(PlayerRole role) {
     std::lock_guard<std::mutex> lock(mutex_);
+    // Локальный стартовый снимок до первого полноценного GameStart от сервера.
     snapshot_.playerInfo.role = role;
     snapshot_.playerInfo.points = 100;
     snapshot_.day = 1;

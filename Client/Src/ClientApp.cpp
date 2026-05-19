@@ -50,6 +50,7 @@ std::optional<int> parseIntField(const std::string& payload, std::string_view ke
         return std::nullopt;
     }
 
+    // Сервер ещё шлёт часть данных как key=value, часть как JSON-похожие строки.
     pos = lower.find_first_of("=:", pos + lower_key.size());
     if (pos == std::string::npos) {
         return std::nullopt;
@@ -111,6 +112,7 @@ std::optional<bool> parseBoolField(const std::string& payload, std::string_view 
     std::size_t pos = lower.find(quotedKey);
     std::size_t keyEnd = std::string::npos;
     if (pos == std::string::npos) {
+        // Для не-JSON данных ищем ключ по границам слова, чтобы не цеплять похожие поля.
         for (std::size_t searchFrom = 0; ; searchFrom = pos + lowerKey.size()) {
             pos = lower.find(lowerKey, searchFrom);
             if (pos == std::string::npos) {
@@ -244,6 +246,7 @@ std::vector<std::string> parseObjectArrayField(const std::string& payload, std::
     int depth = 0;
     std::size_t objectBegin = std::string::npos;
 
+    // Достаём объекты верхнего уровня без полноценной JSON-библиотеки.
     for (++pos; pos < payload.size(); ++pos) {
         const char ch = payload[pos];
         if (escaped) {
@@ -298,6 +301,7 @@ std::vector<std::string> parseStringArrayField(std::string_view payload, std::st
     bool escaped = false;
     std::size_t valueBegin = std::string_view::npos;
 
+    // Массив строк парсим отдельно: новости и зависимости могут содержать экранированные кавычки.
     for (++pos; pos < payload.size(); ++pos) {
         const char ch = payload[pos];
         if (escaped) {
@@ -347,6 +351,7 @@ std::vector<bool> parseBoolArrayField(std::string_view payload, std::string_view
 
     std::string text(payload.substr(pos + 1, end - pos - 1));
     std::size_t valueStart = 0;
+    // Формат от сервера простой, поэтому достаточно токенов true/false/0/1.
     while (valueStart < text.size()) {
         while (valueStart < text.size() &&
                (text[valueStart] == ' ' || text[valueStart] == '\t' || text[valueStart] == ',')) {
@@ -380,6 +385,7 @@ std::vector<Country> parseCountries(const std::string& payload) {
             continue;
         }
 
+        // Клиенту нужны только счётчики населения, остальная модель остаётся на сервере.
         Country country;
         country.name = *name;
         country.pop = Population(parseDoubleField(object, "initial").value_or(0.0));
@@ -432,6 +438,7 @@ std::vector<UpgradeDefinition> parseAvailableUpgrades(const std::string& payload
             continue;
         }
 
+    // Интерфейс хранит только описание апгрейда; эффекты применяются на сервере.
         UpgradeDefinition upgrade;
         upgrade.id = *id;
         if (const auto category = parseStringField(object, "category")) {
@@ -449,6 +456,7 @@ std::vector<UpgradeDefinition> parseAvailableUpgrades(const std::string& payload
 
 bool packetShowsChoosingSide(const std::string& payload) {
     const std::string lower = toLower(payload);
+    // Поддерживаем и JSON-пакеты, и старые текстовые маркеры.
     return contains(lower, "choosingside") ||
            contains(lower, "choosing_side") ||
            contains(lower, "lobby");
@@ -586,6 +594,7 @@ std::string makeChoosingSidePayload(request::ChoosingSideAction action,
                                     PlayerRole role,
                                     const PlayerSubtype& subtype) {
     std::ostringstream payload;
+    // Серверный парсер ждёт именно action/role/subtype в компактном представлении.
     payload << "action=" << choosingActionName(action)
             << ";role=" << roleName(role)
             << ";subtype=" << subtypeName(subtype);
@@ -616,10 +625,12 @@ std::string makePurchaseUpgradePayload(const std::string& upgradeId) {
 }
 
 void applyRoomPayload(GameState& gameState, const std::string& payload) {
+    // Браузер комнат получает весь список комнат одним пакетом.
     gameState.setRooms(parseRooms(payload));
 }
 
 void applyGamePayload(GameState& gameState, const std::string& payload) {
+    // Tick может быть частичным; обновляем только поля, которые реально пришли.
     if (const auto day = parseIntField(payload, "day")) {
         gameState.setDay(static_cast<std::uint16_t>(std::max(0, *day)));
     }
@@ -657,6 +668,7 @@ void applyGamePayload(GameState& gameState, const std::string& payload) {
 
 void applyAssignedRole(GameState& gameState, PlayerRole role) {
     GameSnapshot snapshot = gameState.snapshot();
+    // Роль приходит до старта игры, поэтому сразу синхронизируем выбор подтипа в UI.
     snapshot.playerInfo.role = role;
     snapshot.playerInfo.subtype = defaultSubtypeFor(role);
     snapshot.choosingSide.predefinedRole = role;
@@ -673,6 +685,7 @@ void applyChoosingSideSignal(GameState& gameState, const std::string& payload) {
     ChoosingSideState choosing = snapshot.choosingSide;
     choosing.signal = ChoosingSideSignal::None;
 
+    // Сервер присылает полное состояние лобби; сигнал нужен только для одноразовой реакции интерфейса.
     if (const auto ready = parseBoolField(payload, "ready")) {
         choosing.ready = *ready;
     }
@@ -717,6 +730,7 @@ void ClientApp::run() {
     constexpr auto frameTime = std::chrono::microseconds(16667);
     auto nextFrame = clock::now();
 
+    // Один цикл держит интерфейс отзывчивым, сетевой опрос и отрисовку без отдельного UI-потока.
     while (running_) {
         nextFrame += frameTime;
 
@@ -779,6 +793,7 @@ void ClientApp::updatePendingConnection() {
     }
 
     const auto [attemptId, connected] = pending_connection_.get();
+    // Старые асинхронные попытки могут завершиться после возврата в меню или нового подключения.
     const bool activeAttempt = attemptId == m_activeConnectionAttemptId &&
                                getFlowState() == ClientFlowState::Connecting;
     if (!activeAttempt) {
@@ -800,6 +815,7 @@ void ClientApp::updatePendingConnection() {
     LOG_INFO("Connection established, requesting room list");
     setFlowState(ClientFlowState::RoomBrowsing);
     m_activeConnectionAttemptId = 0;
+    // После TCP-подключения сразу просим состояние комнат, иначе интерфейс останется на экране подключения.
     request_handler_->sendRequest(
         ClientCommand::Connect,
         "",
@@ -823,6 +839,7 @@ void ClientApp::handleServerPacket(const Packet& packet) {
               packet.error_message.c_str());
 
     if (!packet.success) {
+        // Ошибка создания/входа в комнату всё равно несёт актуальный список комнат.
         LOG_WARNING("Server rejected request %u: %s",
                     packet.request_id,
                     packet.error_message.c_str());
@@ -838,6 +855,7 @@ void ClientApp::handleServerPacket(const Packet& packet) {
         return;
     }
 
+    // Сервер пушит разные события одним типом ответа, поэтому классифицируем по содержимому.
     if (packetShowsRooms(packet.payload)) {
         applyRoomPayload(game_state_, packet.payload);
         setFlowState(ClientFlowState::RoomBrowsing);
@@ -864,6 +882,7 @@ void ClientApp::handleServerPacket(const Packet& packet) {
         LOG_INFO("Game start packet received");
         applyGamePayload(game_state_, packet.payload);
         if (!parseIntField(packet.payload, "day").has_value()) {
+            // Старые пакеты GameStart не содержали day.
             game_state_.setDay(1);
         }
 
@@ -898,6 +917,13 @@ void ClientApp::handleServerPacket(const Packet& packet) {
     case ClientFlowState::ReadyWaitingStart:
         if (packetShowsChoosingSide(packet.payload)) {
             setSituation(GameSituation::ChoosingSide);
+            if (const auto ready = parseBoolField(packet.payload, "ready")) {
+                if (*ready) {
+                    setFlowState(ClientFlowState::ReadyWaitingStart);
+                } else {
+                    setFlowState(ClientFlowState::LobbyWaiting);
+                }
+            }
         }
         break;
 
@@ -967,6 +993,7 @@ void ClientApp::handleUserAction(const UserAction& request) {
             setSituation(GameSituation::ConnectingToServer);
             const int attemptId = m_nextConnectionAttemptId++;
             m_activeConnectionAttemptId = attemptId;
+            // connect() может блокировать несколько секунд, поэтому выносим его из UI-цикла.
             pending_connection_ = std::async(std::launch::async, [this, host, port, attemptId]() {
                 const bool connected = transport_.isConnected() ||
                                        transport_.connectToServer(host.c_str(), port);
@@ -985,6 +1012,7 @@ void ClientApp::handleUserAction(const UserAction& request) {
         if (std::holds_alternative<request::RoomRequest>(request)) {
             const request::RoomRequest roomRequest = std::get<request::RoomRequest>(request);
 
+            // Выход из браузера комнат разрывает соединение, чтобы сервер убрал сессию просмотра.
             if (roomRequest.action == request::RoomAction::Back) {
                 LOG_INFO("Room browser action: back to main menu");
                 transport_.disconnect();
@@ -1005,6 +1033,7 @@ void ClientApp::handleUserAction(const UserAction& request) {
                      command == ClientCommand::CreateRoom ? "create" : "join",
                      roomRequest.roomName.c_str());
 
+            // Ответом может прийти либо состояние лобби, либо обновлённый список комнат с ошибкой.
             request_handler_->sendRequest(
                 command,
                 makeRoomPayload(roomRequest),
@@ -1033,13 +1062,9 @@ void ClientApp::handleUserAction(const UserAction& request) {
             ChoosingSideState choosingState = snapshot.choosingSide;
             bool shouldSendRequest = true;
 
+            // Локально обновляем экран сразу, сервер потом подтверждает финальное состояние лобби.
             switch (choosingRequest.action) {
             case request::ChoosingSideAction::SelectSubtype: {
-                if (getFlowState() == ClientFlowState::ReadyWaitingStart) {
-                    shouldSendRequest = false;
-                    break;
-                }
-
                 subtype = subtypeForIndex(role, choosingRequest.subtypeIndex);
                 LOG_INFO("Choosing-side action: select subtype=%s role=%s",
                          subtypeName(subtype),
@@ -1062,11 +1087,6 @@ void ClientApp::handleUserAction(const UserAction& request) {
             }
 
             case request::ChoosingSideAction::ChangeSide:
-                if (getFlowState() == ClientFlowState::ReadyWaitingStart) {
-                    shouldSendRequest = false;
-                    break;
-                }
-
                 choosingState.sideChangeRequested = true;
                 LOG_INFO("Choosing-side action: request side change");
                 choosingState.signal = ChoosingSideSignal::None;
@@ -1087,11 +1107,15 @@ void ClientApp::handleUserAction(const UserAction& request) {
                     break;
                 }
 
-                choosingState.ready = true;
-                LOG_INFO("Choosing-side action: ready");
-                choosingState.signal = ChoosingSideSignal::LocalReady;
+                choosingState.ready = !choosingState.ready;
+                LOG_INFO("Choosing-side action: ready toggled");
+                choosingState.signal = choosingState.ready ? ChoosingSideSignal::LocalReady : ChoosingSideSignal::None;
                 game_state_.setChoosingSideState(choosingState);
-                setFlowState(ClientFlowState::ReadyWaitingStart);
+                if (choosingState.ready) {
+                    setFlowState(ClientFlowState::ReadyWaitingStart);
+                } else {
+                    setFlowState(ClientFlowState::LobbyWaiting);
+                }
                 break;
             }
             }
@@ -1100,6 +1124,7 @@ void ClientApp::handleUserAction(const UserAction& request) {
                 break;
             }
 
+            // Все действия выбора стороны проходят через один серверный обработчик лобби.
             request_handler_->sendRequest(
                 commandForChoosingAction(choosingRequest.action),
                 makeChoosingSidePayload(choosingRequest.action, role, subtype),
@@ -1134,6 +1159,7 @@ void ClientApp::handleUserAction(const UserAction& request) {
                 break;
             }
 
+            // На сервере один и тот же клик может быть заражением, DNA-сбором или обычным выбором.
             LOG_INFO("Game action: select country=%s", selectCountry.countryName.c_str());
             request_handler_->sendRequest(
                 ClientCommand::SelectCountry,

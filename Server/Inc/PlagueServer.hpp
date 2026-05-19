@@ -13,6 +13,7 @@ namespace plague {
 
 class LobbyManager;
 
+// Укрупнённое состояние лобби для конкретной сокет-сессии.
 enum class LobbyState {
     WaitingForSecond,
     ChoosingSubtype,
@@ -20,6 +21,7 @@ enum class LobbyState {
     InGame
 };
 
+// Данные подключенного клиента; LobbyManager хранит на них обычные указатели.
 struct ClientSession {
     int socket_fd = -1;
     std::string readBuffer;
@@ -37,6 +39,7 @@ struct ClientSession {
     std::mutex sendMutex;
 };
 
+// TCP-фасад сервера: принимает клиентов и отдаёт игровые решения в LobbyManager.
 class PlagueServer {
 public:
     PlagueServer(const std::string& ip, int port);

@@ -18,12 +18,14 @@ namespace plague {
 
 struct ClientSession;
 
+// Результат действия лобби для слоя запрос-ответ.
 struct LobbyActionResult {
     bool success = true;
     std::string payload;
     std::string errorMessage;
 };
 
+// Управляет комнатами, выбором ролей и игровым циклом каждой комнаты.
 class LobbyManager {
 public:
     LobbyManager();
@@ -45,6 +47,7 @@ public:
     void removePlayer(ClientSession& session);
 
 private:
+    // Состояние комнаты живёт под LobbyManager::mutex_; gameThread хранит только объект потока.
     struct Room {
         std::string name;
         std::string password;

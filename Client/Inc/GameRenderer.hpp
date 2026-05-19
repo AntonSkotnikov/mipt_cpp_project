@@ -6,6 +6,7 @@
 
 namespace plague {
 
+// Тонкая обёртка над UIManager, чтобы ClientApp не зависел от деталей UI.
 class GameRenderer {
 public:
     GameRenderer() = default;

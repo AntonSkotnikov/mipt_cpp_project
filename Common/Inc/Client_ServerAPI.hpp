@@ -168,14 +168,14 @@ inline std::optional<ClientRequest> parseClientRequestLine(std::string_view line
     return request;
 }
 
-inline std::string serializeServerResponse(const ServerResponse& response) {
+inline std::string serializeServerResponse(const ServerResponse& response) { //упаковка в текстовую строку для отправки
     return "RESPONSE " + std::to_string(response.request_id) + "|" +
            (response.success ? "1" : "0") + "|" +
            response.payload + "|" +
            response.error_message + "\n";
 }
 
-inline std::optional<ServerResponse> parseServerResponseLine(std::string_view line) {
+inline std::optional<ServerResponse> parseServerResponseLine(std::string_view line) { //получает на вход строку из сокета  и пытается восстановить из нее объект ServerResponse
     constexpr std::string_view prefix = "RESPONSE ";
     if (!line.starts_with(prefix)) {
         return std::nullopt;
