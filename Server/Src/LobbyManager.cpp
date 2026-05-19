@@ -768,6 +768,29 @@ LobbyActionResult LobbyManager::purchaseUpgrade(ClientSession& session, const st
 
         session.points -= upgrade->cost;
         session.purchasedUpgrades.push_back(upgradeId);
+                // Apply upgrade effects to the world
+        if (room != nullptr && room->worldInitialized) {
+            if (session.role == PlayerRole::Pathogen) {
+                // Pathogen upgrades affect virus parameters
+                room->world.virus.infectivity += upgrade->infectivityBoost;
+                room->world.virus.lethality += upgrade->lethalityBoost;
+                room->world.virus.vaccineDifficulty += upgrade->vaccineDifficultyBoost;
+            } else {
+                // Humanity upgrades affect humanity and vaccine parameters
+                room->world.humanity.awareness += upgrade->awarenessBoost;
+                room->world.vaccine.spreadRate += upgrade->vaccineSpreadRateBoost;
+                room->world.vaccine.efficacy += upgrade->vaccineEfficacyBoost;
+
+                // Clamp efficacy to reasonable bounds [0.0, 1.0]
+                if (room->world.vaccine.efficacy > 1.0) {
+                    room->world.vaccine.efficacy = 1.0;
+                }
+                if (room->world.vaccine.efficacy < 0.0) {
+                    room->world.vaccine.efficacy = 0.0;
+                }
+            }
+        }
+
         LOG_INFO("Upgrade purchased: fd=%d upgrade=%s cost=%u points_left=%d",
                  session.socket_fd,
                  upgradeId.c_str(),
