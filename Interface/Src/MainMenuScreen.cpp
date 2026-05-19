@@ -19,10 +19,6 @@ MainMenuScreen::MainMenuScreen(Config & cfg, Window & win) : Screen(cfg, win) {
         return request::MainMenu::ConnectToServer;
     });
 
-    menuWidget->addButton("Settings", []() -> request::UIRequest {
-        return request::MainMenu::OpenSettings;
-    });
-
     menuWidget->addButton("Quit", []() -> request::UIRequest {
         return request::MainMenu::Exit;
     });
