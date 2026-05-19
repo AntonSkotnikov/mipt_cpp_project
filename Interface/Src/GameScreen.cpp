@@ -2,13 +2,52 @@
 
 namespace plague::ui {
 
+namespace {
+
+double countryPopulationRatio(double value, const Country & country) {
+    if (country.pop.initial <= 0.0) {
+        return 0.0;
+    }
+
+    return std::clamp(value / country.pop.initial, 0.0, 1.0);
+}
+
+int colorPairForCountry(const Country * country) {
+    if (country == nullptr) {
+        return defaultColorPair;
+    }
+
+    const double infectedRatio = countryPopulationRatio(
+        country->pop.exposed + country->pop.infected,
+        *country
+    );
+    const double deadRatio = countryPopulationRatio(country->pop.dead, *country);
+
+    if (deadRatio >= 0.70) {
+        return blackColorPair;
+    }
+    if (deadRatio >= 0.35 || infectedRatio >= 0.70) {
+        return redHighColorPair;
+    }
+    if (deadRatio >= 0.12 || infectedRatio >= 0.35) {
+        return redMediumColorPair;
+    }
+    if (deadRatio >= 0.01 || infectedRatio >= 0.05) {
+        return redLowColorPair;
+    }
+
+    return defaultColorPair;
+}
+
+}  // namespace
+
 GameScreen::GameScreen(Config & cfg, Window & win) : Screen(cfg, win) {
     widgets.push_back(std::make_unique<FrameDecorator>(win_, std::make_unique<Info>(win_, "")));
 
     for (std::size_t i = 0; i < countryWidgetCount; i++) {
         auto countryImage = std::make_unique<DetalizedImage>(win_);
         countryImages_.push_back(countryImage.get());
-        widgets.push_back(std::make_unique<ColorDecorator>(win_, std::move(countryImage), defaultColorPair));
+        widgets.push_back(std::move(countryImage));
     }
 
     loadCountryMaps();
@@ -125,7 +164,7 @@ void GameScreen::updateSnapshot(const GameSnapshot & snapshot) {
     }
 
     updateNewsTicker();
-    updateCountryHighlights();
+    updateCountryStyles();
     updatePopulationInfo();
     updateSelectedCountryInfo();
 }
@@ -145,7 +184,7 @@ void GameScreen::loadCountryMaps() {
         countryImages_[i]->addSymbols(std::move(symbols));
     }
 
-    updateCountryHighlights();
+    updateCountryStyles();
     loadedMapResolution_ = cfg_.resolution;
     countryMapsLoaded_ = true;
 }
@@ -247,10 +286,13 @@ void GameScreen::updateNewsTicker() {
     displayedNewsCount_ = snapshot_.news.size();
 }
 
-void GameScreen::updateCountryHighlights() {
+void GameScreen::updateCountryStyles() {
     for (std::size_t i = 0; i < countryImages_.size(); i++) {
         const bool highlighted = i < snapshot_.highlightedCountries.size() && snapshot_.highlightedCountries[i];
         countryImages_[i]->setEventHighlight(highlighted);
+
+        const Country * country = findCountry(snapshot_.countries, lowMapCountries[i]);
+        countryImages_[i]->setColorPair(colorPairForCountry(country));
     }
 }
 

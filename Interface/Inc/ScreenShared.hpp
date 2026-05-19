@@ -86,6 +86,10 @@ constexpr std::array<std::size_t, 2> choosingBottomButtonIndices = {
 constexpr int defaultColorPair = 0;
 constexpr int blueColorPair = 2;
 constexpr int greenColorPair = 3;
+constexpr int redLowColorPair = 4;
+constexpr int redMediumColorPair = 5;
+constexpr int redHighColorPair = 6;
+constexpr int blackColorPair = 7;
 constexpr std::size_t infoTabCount = 4;
 constexpr std::array<request::Game, infoTabCount> infoTabRequests = {
     request::Game::Info,
