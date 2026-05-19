@@ -6,7 +6,6 @@
 
 namespace plague {
 
-// ========== ТИПЫ СОБЫТИЙ ДЛЯ КЛИЕНТА ==========
 enum class EventType {
     NEWS_FIRST_INFECTION,      // Первое заражение в стране
     NEWS_COUNTRY_INFECTED,     // Вся страна заражена (>95%)
@@ -18,7 +17,6 @@ enum class EventType {
     ACTION_BORDER_UPGRADE      // Предложение улучшить границы
 };
 
-// ========== НОВОСТЬ/СОБЫТИЕ ДЛЯ ОТПРАВКИ КЛИЕНТУ ==========
 struct GameNews {
     EventType type;
     std::string title;
@@ -140,6 +138,6 @@ public:
 
 std::vector<CountryConnection> buildInitialConnections(const std::vector<Country>& countries);
 World initializeWorld();
-void simulateDay(World& world);  // Функция симуляции одного дня
+void simulateDay(World& world);  
 
-} // namespace plague
+} 

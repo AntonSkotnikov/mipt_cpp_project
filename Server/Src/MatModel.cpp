@@ -26,43 +26,189 @@ std::vector<CountryConnection> buildInitialConnections(const std::vector<Country
         }
     };
 
-    // Names match Interface/Src/Screen.cpp map country identifiers.
     connect("CHINA", "RUSSIA", 5000.0);
     connect("CHINA", "INDIA", 8000.0);
     connect("CHINA", "USA", 3000.0);
+    connect("CHINA", "JAPAN", 3500.0);
+    connect("CHINA", "MONGOLIA", 1200.0);
+    connect("CHINA", "KAZAKHSTAN", 2000.0);
+    connect("CHINA", "SOUTH EAST ASIA", 4500.0);
+    connect("CHINA", "AUSTRALIA", 2500.0);
+
     connect("RUSSIA", "USA", 2000.0);
+    connect("RUSSIA", "CHINA", 5000.0);
+    connect("RUSSIA", "KAZAKHSTAN", 1600.0);
+    connect("RUSSIA", "UKRAINE", 1500.0);
+    connect("RUSSIA", "BELARUS", 1200.0);
+    connect("RUSSIA", "SCANDINAVIA", 1800.0);
+    connect("RUSSIA", "W EUROPE", 2500.0);
+    connect("RUSSIA", "TURKEY", 2000.0);
+    connect("RUSSIA", "JAPAN", 1500.0);
+
     connect("USA", "INDIA", 4000.0);
     connect("USA", "BRAZIL", 3500.0);
+    connect("USA", "CHINA", 3000.0);
+    connect("USA", "RUSSIA", 2000.0);
+    connect("USA", "CANADA", 4500.0);
+    connect("USA", "MEXICO", 5000.0);
+    connect("USA", "UK", 3500.0);
+    connect("USA", "W EUROPE", 4000.0);
+    connect("USA", "JAPAN", 3000.0);
+    connect("USA", "AUSTRALIA", 2500.0);
+    connect("USA", "N SOUTH AMERICA", 2000.0);
+
     connect("INDIA", "BRAZIL", 2500.0);
+    connect("INDIA", "CHINA", 8000.0);
+    connect("INDIA", "USA", 4000.0);
+    connect("INDIA", "MIDDLE EAST", 3500.0);
+    connect("INDIA", "SOUTH EAST ASIA", 4000.0);
+    connect("INDIA", "UK", 2500.0);
+    connect("INDIA", "AUSTRALIA", 2000.0);
+
     connect("BRAZIL", "S AFRICA", 1500.0);
+    connect("BRAZIL", "USA", 3500.0);
+    connect("BRAZIL", "INDIA", 2500.0);
+    connect("BRAZIL", "N SOUTH AMERICA", 1800.0);
+    connect("BRAZIL", "SW SOUTH AMERICA", 1800.0);
+    connect("BRAZIL", "W EUROPE", 2500.0);
+
+    connect("S AFRICA", "BRAZIL", 1500.0);
     connect("S AFRICA", "CHINA", 2000.0);
+    connect("S AFRICA", "M AFRICA", 1800.0);
+    connect("S AFRICA", "MADAGASCAR", 700.0);
+    connect("S AFRICA", "INDIA", 2500.0);
+    connect("S AFRICA", "W EUROPE", 2000.0);
+    connect("S AFRICA", "UK", 1800.0);
+
     connect("CANADA", "USA", 4500.0);
+    connect("CANADA", "UK", 2000.0);
+    connect("CANADA", "SCANDINAVIA", 1500.0);
+    connect("CANADA", "RUSSIA", 1000.0);
+    connect("CANADA", "GREENLAND", 800.0);
+
     connect("MEXICO", "USA", 5000.0);
+    connect("MEXICO", "N SOUTH AMERICA", 2500.0);
+    connect("MEXICO", "SW SOUTH AMERICA", 2000.0);
+    connect("MEXICO", "W EUROPE", 1800.0);
+
     connect("UK", "W EUROPE", 4500.0);
+    connect("UK", "ICELAND", 900.0);
+    connect("UK", "SCANDINAVIA", 2000.0);
+    connect("UK", "USA", 3500.0);
+    connect("UK", "CANADA", 2000.0);
+    connect("UK", "INDIA", 2500.0);
+    connect("UK", "S AFRICA", 1800.0);
+    connect("UK", "AUSTRALIA", 2500.0);
+    connect("UK", "MIDDLE EAST", 2200.0);
+
     connect("W EUROPE", "SCANDINAVIA", 2500.0);
     connect("W EUROPE", "TURKEY", 3200.0);
+    connect("W EUROPE", "UK", 4500.0);
+    connect("W EUROPE", "RUSSIA", 2500.0);
+    connect("W EUROPE", "USA", 4000.0);
+    connect("W EUROPE", "MIDDLE EAST", 3000.0);
+    connect("W EUROPE", "N AFRICA", 2500.0);
+    connect("W EUROPE", "BRAZIL", 2500.0);
+    connect("W EUROPE", "INDIA", 2800.0);
+    connect("W EUROPE", "S AFRICA", 2000.0);
+    connect("W EUROPE", "UKRAINE", 1800.0);
+
+    connect("SCANDINAVIA", "W EUROPE", 2500.0);
+    connect("SCANDINAVIA", "RUSSIA", 1800.0);
+    connect("SCANDINAVIA", "UK", 2000.0);
+    connect("SCANDINAVIA", "ICELAND", 1200.0);
+    connect("SCANDINAVIA", "CANADA", 1500.0);
+    
     connect("TURKEY", "MIDDLE EAST", 2800.0);
+    connect("TURKEY", "W EUROPE", 3200.0);
+    connect("TURKEY", "RUSSIA", 2000.0);
+    connect("TURKEY", "UKRAINE", 1500.0);
+    connect("TURKEY", "N AFRICA", 2000.0);
+    connect("TURKEY", "INDIA", 2500.0);
+
     connect("MIDDLE EAST", "INDIA", 3500.0);
     connect("MIDDLE EAST", "N AFRICA", 2500.0);
+    connect("MIDDLE EAST", "TURKEY", 2800.0);
+    connect("MIDDLE EAST", "W EUROPE", 3000.0);
+    connect("MIDDLE EAST", "SOUTH EAST ASIA", 2500.0);
+    connect("MIDDLE EAST", "UK", 2200.0);
+
     connect("N AFRICA", "M AFRICA", 1800.0);
+    connect("N AFRICA", "MIDDLE EAST", 2500.0);
+    connect("N AFRICA", "W EUROPE", 2500.0);
+    connect("N AFRICA", "TURKEY", 2000.0);
+    connect("N AFRICA", "S AFRICA", 1500.0);
+
     connect("M AFRICA", "S AFRICA", 1800.0);
+    connect("M AFRICA", "N AFRICA", 1800.0);
+    
     connect("AUSTRALIA", "OCEANIA", 2200.0);
     connect("AUSTRALIA", "NEW ZELAND", 1800.0);
+    connect("AUSTRALIA", "CHINA", 2500.0);
+    connect("AUSTRALIA", "USA", 2500.0);
+    connect("AUSTRALIA", "JAPAN", 2000.0);
+    connect("AUSTRALIA", "INDIA", 2000.0);
+    connect("AUSTRALIA", "UK", 2500.0);
+    connect("AUSTRALIA", "SOUTH EAST ASIA", 3000.0);
+
+    connect("NEW ZELAND", "AUSTRALIA", 1800.0);
+    connect("NEW ZELAND", "OCEANIA", 1500.0);
+    connect("NEW ZELAND", "USA", 1800.0);
+
+    connect("OCEANIA", "AUSTRALIA", 2200.0);
+    connect("OCEANIA", "NEW ZELAND", 1500.0);
+    connect("OCEANIA", "SOUTH EAST ASIA", 2000.0);
+
     connect("JAPAN", "CHINA", 3500.0);
+    connect("JAPAN", "RUSSIA", 1500.0);
+    connect("JAPAN", "USA", 3000.0);
+    connect("JAPAN", "AUSTRALIA", 2000.0);
+    connect("JAPAN", "SOUTH EAST ASIA", 3000.0);
+
     connect("MONGOLIA", "CHINA", 1200.0);
+    connect("MONGOLIA", "RUSSIA", 1000.0);
+
     connect("KAZAKHSTAN", "RUSSIA", 1600.0);
+    connect("KAZAKHSTAN", "CHINA", 2000.0);
+    connect("KAZAKHSTAN", "MIDDLE EAST", 1500.0);
+    connect("KAZAKHSTAN", "INDIA", 1800.0);
     connect("UKRAINE", "RUSSIA", 1500.0);
+    connect("UKRAINE", "BELARUS", 1200.0);
+    connect("UKRAINE", "W EUROPE", 1800.0);
+    connect("UKRAINE", "TURKEY", 1500.0);
+
     connect("BELARUS", "RUSSIA", 1200.0);
+    connect("BELARUS", "UKRAINE", 1200.0);
+    connect("BELARUS", "W EUROPE", 1500.0);
+    connect("BELARUS", "SCANDINAVIA", 1000.0);
+
     connect("GREENLAND", "ICELAND", 800.0);
+    connect("GREENLAND", "CANADA", 800.0);
+    connect("GREENLAND", "SCANDINAVIA", 1000.0);
+
     connect("ICELAND", "UK", 900.0);
+    connect("ICELAND", "SCANDINAVIA", 1200.0);
+    connect("ICELAND", "GREENLAND", 800.0);
+    connect("ICELAND", "CANADA", 1000.0);
+
     connect("N SOUTH AMERICA", "BRAZIL", 1800.0);
+    connect("N SOUTH AMERICA", "SW SOUTH AMERICA", 1500.0);
+    connect("N SOUTH AMERICA", "USA", 2000.0);
+    connect("N SOUTH AMERICA", "MEXICO", 2500.0);
+    connect("N SOUTH AMERICA", "W EUROPE", 2000.0);
+
     connect("SW SOUTH AMERICA", "BRAZIL", 1800.0);
+    connect("SW SOUTH AMERICA", "N SOUTH AMERICA", 1500.0);
+    connect("SW SOUTH AMERICA", "MEXICO", 2000.0);
+    connect("SW SOUTH AMERICA", "W EUROPE", 1800.0);
+
     connect("MADAGASCAR", "S AFRICA", 700.0);
+    connect("MADAGASCAR", "INDIA", 1500.0);
 
     return connections;
 }
 
-// ---------- Инициализация мира (сокращённая) ----------
+// ---------- Инициализация мира ----------
 World initializeWorld() {
     World world;
 
@@ -72,7 +218,6 @@ World initializeWorld() {
         double popM;
     };
 
-    // Временный короткий список для отладки
     std::vector<RawCountry> raw = {
         {"AUSTRALIA",          5, 4, 5, 4, 26.0},
         {"BELARUS",            3, 2, 3, 3, 9.0},
@@ -122,8 +267,8 @@ World initializeWorld() {
     world.virus.infectivity = 0.3;
     world.virus.lethality = 0.0;
     world.virus.vaccineDifficulty = 0.5;
-    world.virus.incubationPeriod = 5.0;    // 5 дней инкубации
-    world.virus.infectiousPeriod = 14.0;   // 14 дней заразности
+    world.virus.incubationPeriod = 5.0;    
+    world.virus.infectiousPeriod = 14.0;   
     // Модификаторы климата: холодный, умеренный, теплый, жаркий, тропический
     world.virus.climateModifiers = {0.7, 0.9, 1.0, 1.1, 1.2};
 
@@ -141,47 +286,27 @@ World initializeWorld() {
     return world;
 }
 
-// ========== МАТЕМАТИЧЕСКАЯ МОДЕЛЬ РАСПРОСТРАНЕНИЯ ВИРУСА ==========
-
-/**
- * Обновление прогресса вакцины
- * Скорость разработки зависит от:
- * - Вовлеченности ученых (humanity.scientistCommitment)
- * - Уровня медицины в каждой стране
- * - Сложности разработки вакцины (virus.vaccineDifficulty)
- */
 void updateVaccineProgress(World& world) {
     if (world.vaccine.isReady) return;
 
-    // Базовая скорость разработки
-    double baseSpeed = 0.1; // процентов в день
-
-    // Глобальный вклад ученых
+    double baseSpeed = 0.1;
     double scientistFactor = world.humanity.scientistCommitment;
 
-    // Средний уровень медицины в мире
     double avgMedicine = 0.0;
     for (const auto& country : world.countries) {
         avgMedicine += country.params.medicine / 5.0;
     }
     avgMedicine /= world.countries.size();
 
-    // Сложность разработки снижает скорость
     double difficultyFactor = 1.0 - world.virus.vaccineDifficulty * 0.5;
 
-    // Итоговый прогресс за день
     double dailyProgress = baseSpeed * scientistFactor * avgMedicine * difficultyFactor;
 
-    // Дополнительный бонус от осведомленности (больше знают -> больше финансирования)
     dailyProgress *= (1.0 + world.humanity.awareness * 0.5);
 
     world.vaccine.updateProgress(dailyProgress);
 }
 
-/**
- * Обновление осведомленности человечества
- * Осведомленность растет с количеством зараженных и умерших
- */
 void updateAwareness(World& world) {
     double totalInfected = 0.0;
     double totalDead = 0.0;
@@ -193,25 +318,20 @@ void updateAwareness(World& world) {
         totalPopulation += country.pop.initial;
     }
 
-    // Осведомленность зависит от процента зараженных и мертвых
     double infectionAwareness = totalInfected / totalPopulation * 10.0;
     double deathAwareness = totalDead / totalPopulation * 20.0;
 
-    // Плавное увеличение осведомленности
     double targetAwareness = std::min(1.0, infectionAwareness + deathAwareness);
     double awarenessGrowth = (targetAwareness - world.humanity.awareness) * 0.1;
 
     world.humanity.awareness += awarenessGrowth;
 }
 
-/**
- * Расчет распространения между странами через транспортные связи
- */
 void propagateBetweenCountries(World& world) {
-    const double transmissionProbability = 0.001; // Вероятность передачи на одного путешественника
+    const double transmissionProbability = 0.001;
 
     for (auto& conn : world.connections) {
-        if (!conn.isActive) continue; // Границы закрыты
+        if (!conn.isActive) continue; 
 
         Country& fromCountry = world.countries[conn.from];
         Country& toCountry = world.countries[conn.to];
@@ -221,39 +341,26 @@ void propagateBetweenCountries(World& world) {
             continue;
         }
 
-        // Объем транспорта корректируется урбанизацией
         double transportFactor = (fromCountry.params.getTransportFactor() +
                                   toCountry.params.getTransportFactor()) / 2.0;
         double effectiveVolume = conn.transportVolume * transportFactor;
 
-        // Доля зараженных в исходной стране
         double infectedFraction = fromCountry.pop.infected / fromCountry.pop.initial;
 
-        // Количество зараженных путешественников
         double infectedTravelers = effectiveVolume * infectedFraction * transmissionProbability;
 
-        // Добавляем экспонированных в целевую страну
-        if (infectedTravelers > 0.1) { // Минимальный порог
+        if (infectedTravelers > 0.1) {
             toCountry.pop.exposed += infectedTravelers;
         }
     }
 }
 
-/**
- * Основная функция обновления эпидемиологической модели (SEIR)
- * S - Susceptible (восприимчивые)
- * E - Exposed (зараженные, но не заразные)
- * I - Infected (зараженные и заразные)
- * R - Recovered (выздоровевшие/вакцинированные)
- * D - Dead (умершие)
- */
 void updateEpidemicModel(World& world) {
     const auto& virus = world.virus;
     const auto& vaccine = world.vaccine;
 
-    // Коэффициенты перехода между компартментами
-    double sigma = 1.0 / virus.incubationPeriod;  // E -> I (инкубационный период)
-    double gamma = 1.0 / virus.infectiousPeriod;  // I -> R/D (период заразности)
+    double sigma = 1.0 / virus.incubationPeriod;  
+    double gamma = 1.0 / virus.infectiousPeriod;  
 
     for (auto& country : world.countries) {
         Population& pop = country.pop;
@@ -267,47 +374,26 @@ void updateEpidemicModel(World& world) {
         double R = pop.recovered;
         double D = pop.dead;
 
-        // --- Локальное распространение внутри страны ---
-
-        // Модификатор от климата
         double climateMult = virus.getClimateModifier(country.params.climate);
-
-        // Модификатор от урбанизации (более городские = быстрее распространение)
         double urbanizationFactor = country.params.getTransportFactor();
 
-        // Эффективный коэффициент заражения
         double effectiveBeta = virus.infectivity * climateMult * urbanizationFactor;
 
-        // Новые экспонированные (S -> E)
         double newExposed = effectiveBeta * (S / N) * I;
         if (newExposed > S) newExposed = S;
         if (newExposed < 0) newExposed = 0;
 
-        // Переход из экспонированных в заразные (E -> I)
         double becomingInfectious = sigma * E;
         if (becomingInfectious > E) becomingInfectious = E;
 
-        // Выздоровления и смерти (I -> R/D)
-        // Осведомленность НЕ влияет на выздоровление, только на скорость разработки вакцины и закрытие границ
-
-        // Базовое естественное выздоровление отключено - люди не могут вылечиться без вакцины
         double naturalRecoveryRate = 0.0;
-
-        // Если вакцина готова, добавляем её эффект выздоровления через лечение
         double vaccineRecoveryBonus = vaccine.isReady ? 0.1 : 0.0;
-
-        // Итоговый процент выздоровления
         double recoveryRate = naturalRecoveryRate + vaccineRecoveryBonus;
 
-        // Смертность от вируса - зависит напрямую от летальности вируса
-        // gamma определяет скорость перехода из I в R/D, lethality определяет долю смертей
         double deathRate = gamma * virus.lethality;
-
-        // Новые смерти и выздоровления
         double newDeaths = deathRate * I;
         double newRecovered = recoveryRate * I;
 
-        // Ограничиваем, чтобы не убрать больше людей чем есть в I
         double totalRemoving = newDeaths + newRecovered;
         if (totalRemoving > I) {
             double scale = I / totalRemoving;
@@ -318,19 +404,17 @@ void updateEpidemicModel(World& world) {
         double newVaccinated = 0.0;
         if (vaccine.isReady) {
             double vaccRate = country.params.getVaccineSpeed() * vaccine.spreadRate;
-            vaccRate *= vaccine.efficacy; // Учитываем эффективность вакцины
+            vaccRate *= vaccine.efficacy; 
             newVaccinated = vaccRate * S;
             if (newVaccinated > S) newVaccinated = S;
         }
 
-        // --- Обновление компартментов ---
         S = S - newExposed - newVaccinated;
         E = E + newExposed - becomingInfectious;
         I = I + becomingInfectious - newRecovered - newDeaths;
         R = R + newRecovered + newVaccinated;
         D = D + newDeaths;
 
-        // Ограничения
         if (S < 0) S = 0;
         if (E < 0) E = 0;
         if (I < 0) I = 0;
@@ -349,95 +433,11 @@ void updateEpidemicModel(World& world) {
  * Полный шаг симуляции (один день)
  */
 void simulateDay(World& world) {
-    // 1. Обновление осведомленности
+
     updateAwareness(world);
-
-    // 2. Проверка закрытия границ
     world.checkBorderClosures();
-
-    // 3. Распространение между странами
     propagateBetweenCountries(world);
-
-    // 4. Обновление эпидемиологической модели
     updateEpidemicModel(world);
-
-    // 5. Прогресс вакцины
     updateVaccineProgress(world);
 }
-
-// ---------- Симуляция ----------
-#if defined(MATMODEL_STANDALONE) && MATMODEL_STANDALONE
-int main() {
-    World world = initializeWorld();
-
-    // Начальная инфекция в Китае (добавляем зараженных)
-    for (auto& c : world.countries) {
-        if (c.name == "Китай") {
-            c.pop.infected = 1000;
-            c.pop.susceptible -= 1000;
-        }
-    }
-
-    int totalDays = 365;
-    int printStep = 30;
-
-    std::cout << std::fixed << std::setprecision(1);
-
-    for (int day = 1; day <= totalDays; ++day) {
-        // Симуляция одного дня
-        simulateDay(world);
-
-        // Вывод статистики
-        if (day % printStep == 0 || day == 1) {
-            std::cout << "\n--- Day " << day << " ---\n";
-            std::cout << std::left << std::setw(20) << "Country"
-                      << std::right << std::setw(12) << "Suscept."
-                      << std::setw(12) << "Exposed"
-                      << std::setw(12) << "Infected"
-                      << std::setw(12) << "Dead"
-                      << std::setw(12) << "Recovered"
-                      << std::setw(12) << "S %" << "\n";
-            std::cout << std::string(92, '-') << "\n";
-
-            for (const auto& c : world.countries) {
-                double N = c.pop.initial;
-                double S = c.pop.susceptible;
-                std::cout << std::left << std::setw(20) << c.name
-                          << std::right << std::setw(12) << c.pop.susceptible
-                          << std::setw(12) << c.pop.exposed
-                          << std::setw(12) << c.pop.infected
-                          << std::setw(12) << c.pop.dead
-                          << std::setw(12) << c.pop.recovered
-                          << std::setw(11) << (S / N * 100.0) << "%\n";
-            }
-
-            // Глобальная статистика
-            double totalInfected = 0, totalDead = 0, totalRecovered = 0;
-            for (const auto& c : world.countries) {
-                totalInfected += c.pop.infected + c.pop.exposed;
-                totalDead += c.pop.dead;
-                totalRecovered += c.pop.recovered;
-            }
-
-            std::cout << "\nGlobal stats:\n";
-            std::cout << "  Total Infected: " << totalInfected << "\n";
-            std::cout << "  Total Dead: " << totalDead << "\n";
-            std::cout << "  Total Recovered: " << totalRecovered << "\n";
-            std::cout << "  Vaccine Progress: " << world.vaccine.progress << "%\n";
-            std::cout << "  Humanity Awareness: " << (world.humanity.awareness * 100) << "%\n";
-
-            // Статус границ
-            int closedCount = 0;
-            for (const auto& conn : world.connections) {
-                if (!conn.isActive) closedCount++;
-            }
-            std::cout << "  Closed Borders: " << closedCount << "/" << world.connections.size() << "\n";
-        }
-    }
-
-    return 0;
 }
-
-#endif // MATMODEL_STANDALONE
-
-} // namespace plague
