@@ -69,6 +69,94 @@ std::vector<std::string> splitLines(std::string text) {
     return lines;
 }
 
+std::vector<std::string> wrapLine(std::string_view line, int width) {
+    std::vector<std::string> wrapped;
+    if (width <= 0) {
+        return wrapped;
+    }
+
+    const std::size_t lineWidth = static_cast<std::size_t>(width);
+    std::size_t pos = 0;
+
+    while (pos < line.size()) {
+        while (pos < line.size() && std::isspace(static_cast<unsigned char>(line[pos]))) {
+            pos++;
+        }
+
+        if (pos >= line.size()) {
+            break;
+        }
+
+        std::string current;
+
+        while (pos < line.size()) {
+            while (pos < line.size() && std::isspace(static_cast<unsigned char>(line[pos]))) {
+                pos++;
+            }
+
+            const std::size_t wordStart = pos;
+            while (pos < line.size() && !std::isspace(static_cast<unsigned char>(line[pos]))) {
+                pos++;
+            }
+
+            std::string_view word = line.substr(wordStart, pos - wordStart);
+            if (word.empty()) {
+                continue;
+            }
+
+            if (word.size() > lineWidth) {
+                if (!current.empty()) {
+                    wrapped.push_back(std::move(current));
+                    current.clear();
+                }
+
+                while (word.size() > lineWidth) {
+                    wrapped.emplace_back(word.substr(0, lineWidth));
+                    word.remove_prefix(lineWidth);
+                }
+            }
+
+            const std::size_t separator = current.empty() ? 0 : 1;
+            if (!current.empty() && current.size() + separator + word.size() > lineWidth) {
+                wrapped.push_back(std::move(current));
+                current.clear();
+            }
+
+            if (!word.empty()) {
+                if (!current.empty()) {
+                    current.push_back(' ');
+                }
+                current.append(word);
+            }
+        }
+
+        if (!current.empty()) {
+            wrapped.push_back(std::move(current));
+        }
+    }
+
+    if (wrapped.empty()) {
+        wrapped.emplace_back();
+    }
+
+    return wrapped;
+}
+
+std::vector<std::string> wrapLines(const std::vector<std::string> & lines, int width) {
+    std::vector<std::string> wrapped;
+
+    for (const std::string & line : lines) {
+        std::vector<std::string> current = wrapLine(line, width);
+        wrapped.insert(
+            wrapped.end(),
+            std::make_move_iterator(current.begin()),
+            std::make_move_iterator(current.end())
+        );
+    }
+
+    return wrapped;
+}
+
 }
 
 Widget::Widget(Window & win) : win_(win) {}
@@ -187,10 +275,11 @@ void Info::draw() {
         return;
     }
 
-    int count = std::min(rect_.height, static_cast<int>(lines_.size()));
+    const std::vector<std::string> wrappedLines = wrapLines(lines_, rect_.width);
+    int count = std::min(rect_.height, static_cast<int>(wrappedLines.size()));
 
     for (int i = 0; i < count; i++) {
-        win_.print(rect_.y + i, rect_.x, clipped(lines_[static_cast<std::size_t>(i)], rect_.width));
+        win_.print(rect_.y + i, rect_.x, clipped(wrappedLines[static_cast<std::size_t>(i)], rect_.width));
     }
 }
 
@@ -219,10 +308,11 @@ void Dialog::draw() {
 
     const int buttonCount = static_cast<int>(selectableCount());
     const int textHeight = std::max(1, rect_.height - buttonCount - (buttonCount > 0 ? 1 : 0));
-    const int contentY = rect_.y + std::max(0, (textHeight - static_cast<int>(lines_.size())) / 2);
+    const std::vector<std::string> wrappedLines = wrapLines(lines_, rect_.width);
+    const int contentY = rect_.y + std::max(0, (textHeight - static_cast<int>(wrappedLines.size())) / 2);
 
-    for (std::size_t i = 0; i < lines_.size(); i++) {
-        const std::string line = clipped(lines_[i], rect_.width);
+    for (std::size_t i = 0; i < wrappedLines.size(); i++) {
+        const std::string line = clipped(wrappedLines[i], rect_.width);
         const int x = rect_.x + std::max(0, (rect_.width - static_cast<int>(line.size())) / 2);
         const int y = contentY + static_cast<int>(i);
 
