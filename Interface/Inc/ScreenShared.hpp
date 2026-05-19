@@ -151,12 +151,27 @@ constexpr std::array<CountryParamsPresentation, 29> countryParamsPresentations =
     {"W EUROPE",           {5, 3, 5, 4}}
 }};
 
+inline bool sameCountryName(std::string_view lhs, std::string_view rhs) {
+    if (lhs == rhs) {
+        return true;
+    }
+
+    return (lhs == "NEW ZEALAND" && rhs == "NEW ZELAND") ||
+           (lhs == "NEW ZELAND" && rhs == "NEW ZEALAND");
+}
+
+inline std::string serverCountryName(std::string_view displayName) {
+    return displayName == "NEW ZEALAND"
+        ? std::string("NEW ZELAND")
+        : std::string(displayName);
+}
+
 inline CountryParams countryParamsForName(std::string_view name) {
     const auto it = std::find_if(
         countryParamsPresentations.begin(),
         countryParamsPresentations.end(),
         [name](const CountryParamsPresentation & item) {
-            return item.name == name;
+            return sameCountryName(item.name, name);
         }
     );
 
@@ -224,7 +239,7 @@ inline std::uint64_t totalDeadCount(const std::vector<Country> & countries) {
 inline const Country * findCountry(const std::vector<Country> & countries, std::string_view name) {
     const auto it = std::find_if(countries.begin(), countries.end(),
         [name](const Country & country) {
-            return country.name == name;
+            return sameCountryName(country.name, name);
         });
 
     return it == countries.end() ? nullptr : &*it;
