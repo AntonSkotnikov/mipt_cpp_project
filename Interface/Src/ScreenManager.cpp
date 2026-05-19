@@ -11,6 +11,7 @@ namespace {
 Screen * screenById(ScreenManager & manager, ScreenIds id) {
     switch (id) {
         case ScreenIds::SmallTerm: return &manager.smallTerm_;
+        case ScreenIds::ConnectionFailed: return &manager.connectionFailed_;
         case ScreenIds::MainMenu:  return &manager.mainMenu_;
         case ScreenIds::Connect:   return &manager.connect_;
         case ScreenIds::Rooms:     return &manager.rooms_;
@@ -23,6 +24,7 @@ Screen * screenById(ScreenManager & manager, ScreenIds id) {
         case ScreenIds::Cure:      return &manager.cure_;
         case ScreenIds::World:     return &manager.country_;
         case ScreenIds::News:      return &manager.news_;
+        case ScreenIds::End:       return &manager.end_;
     }
 
     return manager.curScreen;
@@ -33,6 +35,7 @@ Screen * screenById(ScreenManager & manager, ScreenIds id) {
 ScreenManager::ScreenManager(Config & cfg) : cfg_(cfg),
                                              mainWin_{terminalProfiles.at(cfg.resolution).height + deltaForBorders, terminalProfiles.at(cfg.resolution).width + deltaForBorders},
                                              smallTerm_{cfg, mainWin_},
+                                             connectionFailed_{cfg, mainWin_},
                                              mainMenu_{cfg, mainWin_},
 	                                             connect_(cfg, mainWin_),
                                              rooms_(cfg, mainWin_),
@@ -45,6 +48,7 @@ ScreenManager::ScreenManager(Config & cfg) : cfg_(cfg),
                                              cure_{cfg, mainWin_},
                                              country_{cfg, mainWin_},
                                              news_{cfg, mainWin_},
+                                             end_{cfg, mainWin_},
                                              curScreen(&mainMenu_) {
     selectCurrentScreen();
     applyWindowLayout();
@@ -55,6 +59,7 @@ void ScreenManager::resize() {
     selectCurrentScreen();
     applyWindowLayout();
     smallTerm_.resize();
+    connectionFailed_.resize();
     mainMenu_.resize();
     connect_.resize();
     rooms_.resize();
@@ -67,6 +72,7 @@ void ScreenManager::resize() {
     cure_.resize();
     country_.resize();
     news_.resize();
+    end_.resize();
 }
 
 void ScreenManager::applyWindowLayout() {

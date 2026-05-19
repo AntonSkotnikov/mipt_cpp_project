@@ -22,11 +22,13 @@ ConnectToServerScreen::ConnectToServerScreen(Config & cfg, Window & win) : Scree
     ));
 
     auto menuWidget = std::make_unique<Menu>(win_);
-    menuWidget->addButton("Connect", [address, port]() -> request::UIRequest {
+    menuWidget->addButton("Connect", [this, address, port]() -> request::UIRequest {
+        cfg_.lastConnectAddr = address->getText();
+        cfg_.lastConnectPort = port->getText();
         return request::ConnectInfo{
             request::Connect::Connect,
-            address->getText(),
-            port->getText()
+            cfg_.lastConnectAddr,
+            cfg_.lastConnectPort
         };
     });
 

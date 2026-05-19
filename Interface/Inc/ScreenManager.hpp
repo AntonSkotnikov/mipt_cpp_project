@@ -12,6 +12,7 @@ private:
     Window mainWin_; // for border if needed
 public:
     SmallTermScreen smallTerm_;
+    ConnectionFailedScreen connectionFailed_;
     MainMenuScreen mainMenu_;
     ConnectToServerScreen connect_;
     RoomBrowserScreen rooms_;
@@ -26,6 +27,7 @@ public:
     CureInfoScreen cure_;
     CountryScreen country_;
     NewsScreen news_;
+    EndScreen end_;
 
     Screen * curScreen = &mainMenu_;
     ScreenManager(Config & cfg);
