@@ -4,13 +4,22 @@
 #include "logger.hpp"
 
 #include <cerrno>
+#include <chrono>
 #include <cstring>
 #include <fcntl.h>
 #include <netdb.h>
 #include <sys/socket.h>
+#include <sys/select.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 namespace plague {
+
+namespace {
+
+constexpr int kConnectTimeoutMs = 5000;
+
+}  // namespace
 
 SocketTransport::~SocketTransport() {
     disconnect();
@@ -35,10 +44,25 @@ bool SocketTransport::connectToServer(const char* host, int port) {
         return false;
     }
 
+    const auto connect_deadline =
+        std::chrono::steady_clock::now() + std::chrono::milliseconds(kConnectTimeoutMs);
+
     for (struct addrinfo* current = results; current != nullptr; current = current->ai_next) {
+        const auto now = std::chrono::steady_clock::now();
+        if (now >= connect_deadline) {
+            errno = ETIMEDOUT;
+            break;
+        }
+
         const int fd = socket(current->ai_family, current->ai_socktype, current->ai_protocol);
         if (fd < 0) {
             LOG_DEBUG("Skipping address candidate: socket failed: %s", std::strerror(errno));
+            continue;
+        }
+
+        if (!setNonBlocking(fd)) {
+            LOG_DEBUG("Skipping address candidate: non-blocking setup failed: %s", std::strerror(errno));
+            close(fd);
             continue;
         }
 
@@ -47,7 +71,13 @@ bool SocketTransport::connectToServer(const char* host, int port) {
         setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &no_sigpipe, sizeof(no_sigpipe));
 #endif
 
-        if (connect(fd, current->ai_addr, current->ai_addrlen) == 0 && setNonBlocking(fd)) {
+        const int connect_status = connect(fd, current->ai_addr, current->ai_addrlen);
+        const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
+            connect_deadline - std::chrono::steady_clock::now());
+        if (connect_status == 0 ||
+            (connect_status < 0 &&
+             (errno == EINPROGRESS || errno == EWOULDBLOCK) &&
+             waitForConnect(fd, static_cast<int>(remaining.count())))) {
             socket_fd_ = fd;
             connected_ = true;
             LOG_INFO("Socket connection established to %s:%d", host, port);
@@ -215,6 +245,55 @@ bool SocketTransport::setNonBlocking(int fd) {
     }
 
     return fcntl(fd, F_SETFL, current_flags | O_NONBLOCK) == 0;
+}
+
+bool SocketTransport::waitForConnect(int fd, int timeout_ms) {
+    if (timeout_ms <= 0) {
+        errno = ETIMEDOUT;
+        return false;
+    }
+
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
+
+    while (true) {
+        const auto now = std::chrono::steady_clock::now();
+        if (now >= deadline) {
+            errno = ETIMEDOUT;
+            return false;
+        }
+
+        const auto remaining = std::chrono::duration_cast<std::chrono::microseconds>(deadline - now);
+        timeval timeout {};
+        timeout.tv_sec = static_cast<long>(remaining.count() / 1000000);
+        timeout.tv_usec = static_cast<int>(remaining.count() % 1000000);
+
+        fd_set write_fds;
+        FD_ZERO(&write_fds);
+        FD_SET(fd, &write_fds);
+
+        const int ready = select(fd + 1, nullptr, &write_fds, nullptr, &timeout);
+        if (ready > 0) {
+            int socket_error = 0;
+            socklen_t socket_error_size = sizeof(socket_error);
+            if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &socket_error, &socket_error_size) < 0) {
+                return false;
+            }
+            if (socket_error != 0) {
+                errno = socket_error;
+                return false;
+            }
+            return true;
+        }
+
+        if (ready == 0) {
+            errno = ETIMEDOUT;
+            return false;
+        }
+
+        if (errno != EINTR) {
+            return false;
+        }
+    }
 }
 
 }

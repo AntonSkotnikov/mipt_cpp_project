@@ -29,6 +29,7 @@ struct ClientSession {
     bool isReady = false;
     bool wantsSideChange = false;
     std::vector<UpgradeId> purchasedUpgrades;
+    std::string roomName;
     LobbyState lobbyState = LobbyState::WaitingForSecond;
     int points = 0;
     RequestId lastRequestId = 0;

@@ -23,6 +23,7 @@ private:
     void readAvailableData();
     void parseBufferedResponses();
     bool setNonBlocking(int fd);
+    bool waitForConnect(int fd, int timeout_ms);
 
 private:
     int socket_fd_ = -1;

@@ -32,25 +32,30 @@ bool contains(const std::string& text, const char* token) {
 }
 
 std::optional<std::string> payloadField(const std::string& payload, const std::string& key) {
-    const std::string lowerPayload = toLower(payload);
     const std::string lowerKey = toLower(key);
-    std::size_t pos = lowerPayload.find(lowerKey);
-    if (pos == std::string::npos) {
-        return std::nullopt;
+
+    std::size_t fieldBegin = 0;
+    while (fieldBegin <= payload.size()) {
+        std::size_t fieldEnd = payload.find(';', fieldBegin);
+        if (fieldEnd == std::string::npos) {
+            fieldEnd = payload.size();
+        }
+
+        const std::size_t equalsPos = payload.find('=', fieldBegin);
+        if (equalsPos != std::string::npos && equalsPos < fieldEnd) {
+            const std::string fieldKey = toLower(payload.substr(fieldBegin, equalsPos - fieldBegin));
+            if (fieldKey == lowerKey) {
+                return payload.substr(equalsPos + 1, fieldEnd - equalsPos - 1);
+            }
+        }
+
+        if (fieldEnd == payload.size()) {
+            break;
+        }
+        fieldBegin = fieldEnd + 1;
     }
 
-    pos = lowerPayload.find('=', pos + lowerKey.size());
-    if (pos == std::string::npos) {
-        return std::nullopt;
-    }
-
-    const std::size_t valueBegin = pos + 1;
-    std::size_t valueEnd = payload.find(';', valueBegin);
-    if (valueEnd == std::string::npos) {
-        valueEnd = payload.size();
-    }
-
-    return payload.substr(valueBegin, valueEnd - valueBegin);
+    return std::nullopt;
 }
 
 std::string payloadAction(const std::string& payload) {
