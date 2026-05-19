@@ -722,7 +722,10 @@ void ClientApp::run() {
 
         const request::UIRequest request = renderer_.pollInput(game_state_);
         handleUserAction(request);
-        request_handler_->update();
+        updatePendingConnection();
+        if (!pending_connection_.valid()) {
+            request_handler_->update();
+        }
         renderer_.render(game_state_);
 
         std::this_thread::sleep_until(nextFrame);
@@ -747,6 +750,7 @@ void ClientApp::resetStateForMenu() {
     game_state_.resetForMenu();
     std::lock_guard<std::mutex> lock(m_stateMutex);
     m_currentState = ClientFlowState::Disconnected;
+    m_activeConnectionAttemptId = 0;
     m_subtypeSelected = false;
 }
 
@@ -763,6 +767,52 @@ void ClientApp::setFlowState(ClientFlowState newState) {
 ClientFlowState ClientApp::getFlowState() const {
     std::lock_guard<std::mutex> lock(m_stateMutex);
     return m_currentState;
+}
+
+void ClientApp::updatePendingConnection() {
+    if (!pending_connection_.valid()) {
+        return;
+    }
+
+    if (pending_connection_.wait_for(std::chrono::milliseconds(0)) != std::future_status::ready) {
+        return;
+    }
+
+    const auto [attemptId, connected] = pending_connection_.get();
+    const bool activeAttempt = attemptId == m_activeConnectionAttemptId &&
+                               getFlowState() == ClientFlowState::Connecting;
+    if (!activeAttempt) {
+        if (connected) {
+            transport_.disconnect();
+        }
+        return;
+    }
+
+    if (!connected) {
+        LOG_WARNING("Background connection attempt failed");
+        game_state_.resetForMenu();
+        setFlowState(ClientFlowState::Disconnected);
+        m_activeConnectionAttemptId = 0;
+        setSituation(GameSituation::ConnectingToServerFailed);
+        return;
+    }
+
+    LOG_INFO("Connection established, requesting room list");
+    setFlowState(ClientFlowState::RoomBrowsing);
+    m_activeConnectionAttemptId = 0;
+    request_handler_->sendRequest(
+        ClientCommand::Connect,
+        "",
+        [this](const ServerResponse& response) {
+            handleServerPacket(response);
+        },
+        [this](RequestId) {
+            LOG_WARNING("Connect request timed out");
+            transport_.disconnect();
+            game_state_.resetForMenu();
+            setFlowState(ClientFlowState::Disconnected);
+            setSituation(GameSituation::ConnectingToServerFailed);
+        });
 }
 
 void ClientApp::handleServerPacket(const Packet& packet) {
@@ -889,6 +939,7 @@ void ClientApp::handleUserAction(const UserAction& request) {
 
     case GameSituation::ConnectToServer:
     case GameSituation::ConnectingToServer:
+    case GameSituation::ConnectingToServerFailed:
         if (std::holds_alternative<request::ConnectInfo>(request) &&
             std::get<request::ConnectInfo>(request).id == request::Connect::Connect) {
             if (request_handler_->hasPendingRequests()) {
@@ -907,37 +958,27 @@ void ClientApp::handleUserAction(const UserAction& request) {
 
             LOG_INFO("Connect form submitted: host=%s port=%d", host.c_str(), port);
 
-            if (!transport_.isConnected() && !transport_.connectToServer(host.c_str(), port)) {
-                LOG_WARNING("Connection attempt failed: host=%s port=%d", host.c_str(), port);
-                resetStateForMenu();
-                setSituation(GameSituation::MainMenu);
+            if (pending_connection_.valid()) {
+                LOG_DEBUG("Connect action ignored because a connection attempt is already pending");
                 break;
             }
 
-            LOG_INFO("Connection established, requesting room list");
-            setFlowState(ClientFlowState::RoomBrowsing);
-            request_handler_->sendRequest(
-                ClientCommand::Connect,
-                "",
-                [this](const ServerResponse& response) {
-                    handleServerPacket(response);
-                },
-                [this](RequestId) {
-                    LOG_WARNING("Connect request timed out");
-                    transport_.disconnect();
-                    resetStateForMenu();
-                    setSituation(GameSituation::MainMenu);
-                });
+            setFlowState(ClientFlowState::Connecting);
+            setSituation(GameSituation::ConnectingToServer);
+            const int attemptId = m_nextConnectionAttemptId++;
+            m_activeConnectionAttemptId = attemptId;
+            pending_connection_ = std::async(std::launch::async, [this, host, port, attemptId]() {
+                const bool connected = transport_.isConnected() ||
+                                       transport_.connectToServer(host.c_str(), port);
+                return std::make_pair(attemptId, connected);
+            });
         } else if (std::holds_alternative<request::ConnectInfo>(request) &&
                    std::get<request::ConnectInfo>(request).id == request::Connect::Back) {
             LOG_INFO("Connect screen action: back to main menu");
+            m_activeConnectionAttemptId = 0;
+            setFlowState(ClientFlowState::Disconnected);
             setSituation(GameSituation::MainMenu);
         }
-        break;
-
-    case GameSituation::ConnectingToServerFailed:
-        resetStateForMenu();
-        setSituation(GameSituation::MainMenu);
         break;
 
     case GameSituation::RoomBrowser:

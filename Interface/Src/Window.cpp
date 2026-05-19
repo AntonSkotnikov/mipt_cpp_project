@@ -116,7 +116,7 @@ void Window::printCentered(int y, std::string_view text) {
     if (!currentLine.empty()) {
         lines.push_back(currentLine);
     }
-    
+
     for (size_t i = 0; i < lines.size(); ++i) {
         int currentY = y + static_cast<int>(i);
         if (currentY >= height) break;

@@ -6,8 +6,10 @@
 #include "SocketTransport.hpp"
 #include "UI_ClientAPI.hpp"
 
+#include <future>
 #include <memory>
 #include <mutex>
+#include <utility>
 
 namespace plague {
 
@@ -38,14 +40,18 @@ private:
     void resetStateForMenu();
     void setFlowState(ClientFlowState newState);
     ClientFlowState getFlowState() const;
+    void updatePendingConnection();
 
 private:
     SocketTransport& transport_;
     std::unique_ptr<RequestHandler> request_handler_;
+    std::future<std::pair<int, bool>> pending_connection_;
     GameState game_state_;
     GameRenderer renderer_;
     mutable std::mutex m_stateMutex;
     ClientFlowState m_currentState = ClientFlowState::Disconnected;
+    int m_nextConnectionAttemptId = 1;
+    int m_activeConnectionAttemptId = 0;
     bool m_subtypeSelected = false;
     bool running_ = true;
 };

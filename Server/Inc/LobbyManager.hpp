@@ -8,6 +8,7 @@
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -44,49 +45,56 @@ public:
     void removePlayer(ClientSession& session);
 
 private:
+    struct Room {
+        std::string name;
+        std::string password;
+        ClientSession* players[2]{nullptr, nullptr};
+        std::atomic_bool gameLoopRunning{false};
+        std::thread gameThread;
+        World world;
+        EventGenerator eventGenerator;
+        std::vector<bool> highlightedCountries;
+        bool worldInitialized = false;
+        bool initialInfectionSelected = false;
+        bool activeDnaClickAvailable = false;
+        std::size_t activeDnaCountry = 0;
+        int activeDnaAmount = 0;
+        std::uint64_t activeDnaEventId = 0;
+        int gameDay = 1;
+    };
+
+    Room* roomForSessionLocked(const ClientSession& session) const;
+    Room* findRoomLocked(const std::string& roomName) const;
+    ClientSession* opponentOf(const Room& room, ClientSession& session) const;
     ClientSession* opponentOf(ClientSession& session) const;
     bool containsSession(const ClientSession& session) const;
-    bool hasTwoPlayers() const;
-    bool bothReady() const;
-    bool roomExistsLocked() const;
-    bool roomIsFullLocked() const;
+    bool hasTwoPlayers(const Room& room) const;
+    bool bothReady(const Room& room) const;
+    bool roomIsFullLocked(const Room& room) const;
     void removeBrowserLocked(ClientSession& session);
+    LobbyActionResult addPlayerToRoom(ClientSession& session, const std::string& roomName);
     std::string roomListPayloadLocked(const char* event) const;
-    void swapRolesLocked();
-    std::string lobbyPayloadFor(const ClientSession& session, const char* event) const;
-    std::string startPayloadFor(const ClientSession& session) const;
+    void swapRolesLocked(Room& room);
+    std::string lobbyPayloadFor(const Room& room, const ClientSession& session, const char* event) const;
+    std::string startPayloadFor(const Room& room, const ClientSession& session) const;
     std::string upgradePurchasePayloadFor(const ClientSession& session,
                                           const char* event,
                                           const std::string& upgradeId,
                                           const char* reason) const;
     std::string gameStatsPayload(int tick) const;
-    std::string gameStatsPayloadLocked(const char* event, const ClientSession* session = nullptr) const;
-    void appendNewsAndEventsLocked(std::ostringstream& payload) const;
+    std::string gameStatsPayloadLocked(const Room& room, const char* event, const ClientSession* session = nullptr) const;
+    void appendNewsAndEventsLocked(std::ostringstream& payload, const Room* room) const;
     void notifySession(ClientSession& session, const std::string& payload);
     void notifyOpponent(ClientSession& session, const std::string& payload);
-    void notifyBoth(const std::string& payload);
-    void startGameLocked(ClientSession& triggeringSession);
-    void gameLoop();
+    void notifyBoth(Room& room, const std::string& payload);
+    void startGameLocked(Room& room, ClientSession& triggeringSession);
+    void gameLoop(Room* room);
     void stopGameLoop();
 
 private:
     mutable std::mutex mutex_;
-    ClientSession* players_[2]{nullptr, nullptr};
+    std::vector<std::unique_ptr<Room>> rooms_;
     std::vector<ClientSession*> roomBrowsers_;
-    std::atomic_bool gameLoopRunning_{false};
-    std::thread gameThread_;
-    std::string roomName_;
-    std::string roomPassword_;
-    World world_;
-    EventGenerator eventGenerator_;
-    std::vector<bool> highlightedCountries_;
-    bool worldInitialized_ = false;
-    bool initialInfectionSelected_ = false;
-    bool activeDnaClickAvailable_ = false;
-    std::size_t activeDnaCountry_ = 0;
-    int activeDnaAmount_ = 0;
-    std::uint64_t activeDnaEventId_ = 0;
-    int gameDay_ = 1;
 };
 
 }  // namespace plague
