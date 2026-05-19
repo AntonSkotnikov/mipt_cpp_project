@@ -10,9 +10,9 @@ namespace plague {
 
 // ========== ТИПЫ МАРШРУТОВ ==========
 enum class RouteType {
-    Air,        // Воздушный маршрут (быстрый, меньше пассажиров)
-    Sea,        // Водный маршрут (медленный, много пассажиров)
-    Land        // Сухопутный маршрут (средняя скорость, среднее кол-во)
+    Air,  
+    Sea,
+    Land        
 };
 
 // ========== ПАРАМЕТРЫ МАРШРУТА ==========
@@ -50,9 +50,9 @@ struct SpecialEventEffect {
     SpecialEventEffect();
 };
 
-// ========== РЕЗУЛЬТАТ СОБЫТИЯ ==========
+
 struct EventResult {
-    EventType type;  // Используем EventType из SimulationTypes.hpp
+    EventType type;  
     std::string description;
 
     // Для первого заражения
@@ -71,7 +71,7 @@ struct EventResult {
     SpecialEventEffect specialEvent;
 
     // Для DNA
-    size_t highlightedCountry = 0;  // Страна для клика
+    size_t highlightedCountry = 0;  
     int dnaAmount = 0;
     int playerIndex = -1;           // -1 = еще не выбран (ждём клика)
 
@@ -84,7 +84,7 @@ struct EventResult {
     EventResult() : type(EventType::NEWS_FIRST_INFECTION) {}
 };
 
-// ========== ПАРАМЕТРЫ ГЕНЕРАТОРА ==========
+
 struct EventGeneratorParams {
     // Параметры для первого заражения
     int baseFirstInfectionCount = 100;
@@ -94,10 +94,10 @@ struct EventGeneratorParams {
     double infectivityModifier = 0.1;
 
     // Параметры для специальных событий
-    double specialEventChance = 0.02;  // Шанс специального события в день
+    double specialEventChance = 0.02;  
 
     // Параметры для DNA
-    double dnaClickChance = 0.15;      // Шанс подсветки страны для клика
+    double dnaClickChance = 0.15;      
     int baseDNAAmount = 5;
     int minDaysBetweenDNA = 2;
 
@@ -106,7 +106,6 @@ struct EventGeneratorParams {
     int borderUpgradeCost = 10;
 };
 
-// ========== АКТИВНЫЕ СПЕЦИАЛЬНЫЕ СОБЫТИЯ ==========
 struct ActiveSpecialEvent {
     SpecialEventEffect effect;
     int daysRemaining;
@@ -116,7 +115,6 @@ struct ActiveSpecialEvent {
         : effect(e), daysRemaining(duration) {}
 };
 
-// ========== ГЕНЕРАТОР СОБЫТИЙ ==========
 class EventGenerator {
 public:
     EventGenerator();
@@ -139,24 +137,21 @@ private:
     int lastDNAGrantDay_;
     std::vector<ActiveSpecialEvent> activeEvents_;
 
-    // Методы генерации событий
     EventResult tryFirstInfection(World& world);
     EventResult tryTransportMovement(World& world);
     EventResult trySpecialEvent(World& world, int day);
     EventResult tryDNAClickOpportunity(World& world, int day);
     EventResult tryBorderUpgrade(World& world, int humanityDNA);
 
-    // Вспомогательные методы
     double randomDouble();
     int randomInt(int min, int max);
     int selectRandomUninfectedCountry(const World& world);
     int selectRandomInfectedCountry(const World& world);
 
-    // Расчет вероятности заражения для маршрута
     bool checkInfectionTransmission(double infectedFraction,
                                     int travelers,
                                     double virusInfectivity,
                                     double routeSpeedMod);
 };
 
-} // namespace plague
+} 

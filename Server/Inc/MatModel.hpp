@@ -14,4 +14,4 @@ void simulateDay(World& world);
 
 World initializeWorld();
 
-} // namespace plague
+} 

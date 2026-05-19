@@ -126,7 +126,6 @@ EventResult EventGenerator::tryFirstInfection(World& world) {
         country.pop.susceptible -= infectedCount;
         country.pop.exposed += infectedCount;
 
-        // Генерируем ID события
         result.eventId = world.nextEventId++;
         result.type = EventType::NEWS_FIRST_INFECTION;
         result.countryIndex = static_cast<size_t>(countryIdx);
@@ -137,7 +136,6 @@ EventResult EventGenerator::tryFirstInfection(World& world) {
            << "! " << infectedCount << " people infected.";
         result.description = ss.str();
 
-        // Добавляем новость в очередь мира
         GameNews news(
             EventType::NEWS_FIRST_INFECTION,
             "First Infection!",
@@ -146,7 +144,7 @@ EventResult EventGenerator::tryFirstInfection(World& world) {
             country.name,
             static_cast<uint64_t>(countryIdx),
             result.eventId,
-            0  // день будет установлен в основном цикле
+            0  
         );
         world.addNews(news);
     }
@@ -198,7 +196,7 @@ EventResult EventGenerator::tryTransportMovement(World& world) {
     );
 
     result.eventId = world.nextEventId++;
-    result.type = EventType::NEWS_FIRST_INFECTION; // Временно используем этот тип
+    result.type = EventType::NEWS_FIRST_INFECTION; 
     result.fromCountry = conn.from;
     result.toCountry = conn.to;
     result.routeType = RouteType::Air;
@@ -220,7 +218,6 @@ EventResult EventGenerator::tryTransportMovement(World& world) {
 
         ss << " - transported " << infectedCount << " infected!";
 
-        // Если в стране назначения еще не было инфекции, это первое заражение
         if (toCountry.pop.infected < 1.0 && toCountry.pop.exposed <= static_cast<double>(infectedCount + 10)) {
             GameNews news(
                 EventType::NEWS_FIRST_INFECTION,
@@ -243,7 +240,6 @@ EventResult EventGenerator::tryTransportMovement(World& world) {
     return result;
 }
 
-// ========== ПРОВЕРКА ПЕРЕДАЧИ ИНФЕКЦИИ ==========
 bool EventGenerator::checkInfectionTransmission(double infectedFraction,
                                                   int travelers,
                                                   double virusInfectivity,
@@ -345,7 +341,6 @@ EventResult EventGenerator::trySpecialEvent(World& world, int day) {
     result.specialEvent = effect;
     result.description = effect.description;
 
-    // Добавляем новость о специальном событии
     std::string title = "Global Event!";
     GameNews news(
         EventType::NEWS_EVENT_GLOBAL,
@@ -406,16 +401,9 @@ EventResult EventGenerator::tryDNAClickOpportunity(World& world, int day) {
     double infectionRate = (country.pop.infected + country.pop.exposed) /
                            std::max(1.0, country.pop.initial);
     
-    // Random base amount: 3-8 DNA points
     int randomBase = randomInt(3, 8);
-
-    // Time bonus: more DNA as days pass (approximately +1 DNA per 5 days)
     int timeBonus = day / 5;
-
-    // Infection rate bonus: more infected = more DNA
     int infectionBonus = static_cast<int>(infectionRate * 15);
-
-    // Total DNA with randomization and scaling
     int dnaAmount = randomBase + timeBonus + infectionBonus;
     dnaAmount = std::max(1, dnaAmount);
 
@@ -430,7 +418,6 @@ EventResult EventGenerator::tryDNAClickOpportunity(World& world, int day) {
        << "First player to click gets " << dnaAmount << " DNA!";
     result.description = ss.str();
 
-    // Добавляем новость о возможности получить DNA
     GameNews news(
         EventType::ACTION_DNA_CLICK,
         "DNA Opportunity!",
@@ -477,7 +464,6 @@ EventResult EventGenerator::tryBorderUpgrade(World& world, int humanityDNA) {
        << params_.borderUpgradeCost << " DNA!";
     result.description = ss.str();
 
-    // Добавляем новость об апгрейде
     GameNews news(
         EventType::ACTION_BORDER_UPGRADE,
         "Border Upgrade!",
@@ -499,4 +485,4 @@ SpecialEventEffect::SpecialEventEffect()
       infectivityMod(1.0), transportMod(1.0), vaccineMod(1.0),
       bordersForcedOpen(false) {}
 
-} // namespace plague
+} 
