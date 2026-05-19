@@ -380,7 +380,7 @@ request::UIRequest GameScreen::handleInput(int key) {
                 indexOfSelectedCountry >= 0 &&
                 static_cast<std::size_t>(indexOfSelectedCountry) < lowMapCountries.size()) {
                 return request::SelectCountry{
-                    lowMapCountries[static_cast<std::size_t>(indexOfSelectedCountry)]
+                    serverCountryName(lowMapCountries[static_cast<std::size_t>(indexOfSelectedCountry)])
                 };
             }
             return request::None{};

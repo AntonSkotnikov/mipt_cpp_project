@@ -25,9 +25,14 @@ const char * climateLabel(int climate) {
     }
 }
 
-std::string countryDetailsText(const Country & country, const CountryParams & params, bool highlighted) {
+std::string countryDetailsText(
+    std::string_view displayName,
+    const Country & country,
+    const CountryParams & params,
+    bool highlighted
+) {
     std::ostringstream out;
-    out << country.name
+    out << displayName
         << "\n\nPopulation"
         << "\nInitial: " << formatCount(populationCount(country.pop.initial))
         << "\nAlive: " << formatCount(countryAliveCount(country))
@@ -116,7 +121,7 @@ void CountryScreen::updateSelectedCountryInfo() {
     const std::string_view countryName = lowMapCountries[index];
     if (const Country * country = findCountry(snapshot_.countries, countryName)) {
         const bool highlighted = index < snapshot_.highlightedCountries.size() && snapshot_.highlightedCountries[index];
-        countryInfo_->changeText(countryDetailsText(*country, countryParamsForName(countryName), highlighted));
+        countryInfo_->changeText(countryDetailsText(countryName, *country, countryParamsForName(countryName), highlighted));
         return;
     }
 
