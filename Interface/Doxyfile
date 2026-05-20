@@ -1,0 +1,41 @@
+# Doxygen configuration for the ncurses interface layer.
+
+PROJECT_NAME           = "Plague Inc Interface"
+OUTPUT_DIRECTORY       = ../docs/interface
+INPUT                  = Inc Src
+FILE_PATTERNS          = *.hpp *.cpp
+RECURSIVE              = YES
+EXCLUDE_PATTERNS       = */Maps/*
+
+GENERATE_HTML          = YES
+GENERATE_LATEX         = NO
+HTML_OUTPUT            = html
+
+EXTRACT_ALL            = NO
+EXTRACT_PRIVATE        = NO
+EXTRACT_STATIC         = NO
+HIDE_UNDOC_MEMBERS     = NO
+HIDE_UNDOC_CLASSES     = NO
+
+QUIET                  = YES
+WARNINGS               = YES
+WARN_IF_UNDOCUMENTED   = YES
+WARN_IF_DOC_ERROR      = YES
+
+FULL_PATH_NAMES        = NO
+STRIP_FROM_PATH        = ..
+
+SOURCE_BROWSER         = YES
+INLINE_SOURCES         = NO
+REFERENCED_BY_RELATION = YES
+REFERENCES_RELATION    = YES
+GENERATE_TREEVIEW      = YES
+
+JAVADOC_AUTOBRIEF      = YES
+MARKDOWN_SUPPORT       = YES
+AUTOLINK_SUPPORT       = YES
+
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = NO
+
+HAVE_DOT               = NO

@@ -1,0 +1,20 @@
+var NAVTREEINDEX1 =
+{
+"structplague_1_1ui_1_1CountryParamsPresentation.html":[0,0,0,0,16],
+"structplague_1_1ui_1_1InputResult.html":[0,0,0,0,22],
+"structplague_1_1ui_1_1InputResult.html#a2c999f8c7bdf5907b638f4dbb26c88c3":[0,0,0,0,22,0],
+"structplague_1_1ui_1_1InputResult.html#a3e6513e967d03de6b3e02601ddd80c5e":[0,0,0,0,22,1],
+"structplague_1_1ui_1_1Rect.html":[0,0,0,0,21],
+"structplague_1_1ui_1_1Rect.html#a088fd00ad628d85c2ca04766847ad837":[0,0,0,0,21,3],
+"structplague_1_1ui_1_1Rect.html#a34f534f7d3f13eac34e27a7410f3e3b9":[0,0,0,0,21,0],
+"structplague_1_1ui_1_1Rect.html#adc1e9946d268e7f180edf56b348bb713":[0,0,0,0,21,1],
+"structplague_1_1ui_1_1Rect.html#afad25bc2cc19b9fc3cb2a7415267db26":[0,0,0,0,21,2],
+"structplague_1_1ui_1_1RoomListItem.html":[0,0,0,0,37],
+"structplague_1_1ui_1_1SubtypePresentation.html":[0,0,0,0,17],
+"structplague_1_1ui_1_1SymbolOnScreen.html":[0,0,0,0,30],
+"structplague_1_1ui_1_1SymbolOnScreen.html#ad0f3c5b6470d6b01c36075cad1ccdb2b":[0,0,0,0,30,1],
+"structplague_1_1ui_1_1SymbolOnScreen.html#af5e2584dd74bf14b5cc645f0748dde73":[0,0,0,0,30,0],
+"structplague_1_1ui_1_1TerminalProfile.html":[0,0,0,0,18],
+"structplague_1_1ui_1_1TerminalProfile.html#a419fe43ebd5597669a9aba655402e0d4":[0,0,0,0,18,0],
+"structplague_1_1ui_1_1UpgradeListItem.html":[0,0,0,0,39]
+};
