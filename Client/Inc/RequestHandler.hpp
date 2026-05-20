@@ -29,7 +29,7 @@ public:
     RequestHandler(SocketTransport& transport);
     RequestId sendRequest(ClientCommand command,
                           std::string payload,
-                          ResponseCallback on_response,
+                          ResponseCallback on_response, //лямбда callback
                           TimeoutCallback on_timeout = nullptr,
                           RequestConfig config = {});
     void handleIncoming(const ServerResponse& response);
